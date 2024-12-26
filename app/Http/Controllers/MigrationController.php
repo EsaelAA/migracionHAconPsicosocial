@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\caliestres_pontificia;
 use App\Models\caliextralaborales;
 use App\Models\caliriesgopsicosocialparte1;
 use App\Models\caliriesgopsicosocialparte2;
@@ -18,6 +19,7 @@ use App\Models\MeasurementCompanies;
 use App\Models\Measurements;
 use App\Models\Questionnaires;
 use App\Models\Results;
+use App\Models\Stress;
 use Carbon\Carbon;
 use DateTime;
 use Illuminate\Http\Request;
@@ -3582,6 +3584,523 @@ class MigrationController extends Controller
             return response()->json(['message' => "Se han registrado las respuestas exitosamente."], 200);
         } else {
             return response()->json(['error' => "No se ha podido registrar las respuestas.", 'Questionnaire' => 'Extralaboral'], 500);
+        }
+    }
+
+    public function migrateQuestionnaireStress()
+    {
+        $Caliriesgo = caliestres_pontificia::all();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerStress($dataIntrawork);
+        }
+    }
+
+    public function registerStress(Request $request)
+    {
+        $QuestionnaireExits = Questionnaires::where('questionnaire_id', $request->questionnaire_id)->first();
+
+        if (!$QuestionnaireExits) {
+            return;
+        }
+
+        $Employee = DB::table('psychosocial_questionnaires')
+            ->select(
+                'psychosocial_questionnaires.questionnaire_id',
+                DB::raw('COUNT(DISTINCT psychosocial_employees.employee_id) as num_employees'),
+                'psychosocial_employees.position_type'
+            )
+            ->join('psychosocial_employees', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+            ->groupBy('psychosocial_questionnaires.employee_id', 'psychosocial_questionnaires.questionnaire_id', 'psychosocial_employees.position_type')
+            ->get();
+
+        $MathFour = null;
+        $MathTree = null;
+        $MathTwo = null;
+        $MathProm = null;
+
+        for ($i = 1; $i <= 31; $i++) {
+
+            $counters = [
+                'countAlways' => 0,
+                'countAlmostAlways' => 0,
+                'countSometimes' => 0,
+                'countNever' => 0
+            ];
+
+            //Item 1
+            if (
+                $i == 1
+                || $i == 2
+                || $i == 3
+                || $i == 9
+                || $i == 13
+                || $i == 14
+                || $i == 15
+                || $i == 23
+                || $i == 24
+            ) {
+                if ($request["answer_$i"] == 9) {
+                    $counters['countAlways'] = 1;
+                } elseif ($request["answer_$i"] == 6) {
+                    $counters['countAlmostAlways'] = 1;
+                } elseif ($request["answer_$i"] == 3) {
+                    $counters['countSometimes'] = 1;
+                } elseif ($request["answer_$i"] == 0) {
+                    $counters['countNever'] = 1;
+                }
+            }
+            //Item2
+            if (
+                $i == 4
+                || $i == 5
+                || $i == 6
+                || $i == 10
+                || $i == 11
+                || $i == 16
+                || $i == 17
+                || $i == 18
+                || $i == 19
+                || $i == 25
+                || $i == 26
+                || $i == 27
+                || $i == 28
+            ) {
+                if ($request["answer_$i"] == 6) {
+                    $counters['countAlways'] = 1;
+                } elseif ($request["answer_$i"] == 4) {
+                    $counters['countAlmostAlways'] = 1;
+                } elseif ($request["answer_$i"] == 2) {
+                    $counters['countSometimes'] = 1;
+                } elseif ($request["answer_$i"] == 0) {
+                    $counters['countNever'] = 1;
+                }
+            }
+            // Item 3
+            if (
+                $i == 7
+                || $i == 8
+                || $i == 12
+                || $i == 20
+                || $i == 21
+                || $i == 22
+                || $i == 29
+                || $i == 30
+                || $i == 31
+            ) {
+                if ($request["answer_$i"] == 3) {
+                    $counters['countAlways'] = 1;
+                } elseif ($request["answer_$i"] == 2) {
+                    $counters['countAlmostAlways'] = 1;
+                } elseif ($request["answer_$i"] == 1) {
+                    $counters['countSometimes'] = 1;
+                } elseif ($request["answer_$i"] == 0) {
+                    $counters['countNever'] = 1;
+                }
+            }
+
+            // Operaciones
+            if (
+                $i == 1
+                || $i == 2
+                || $i == 3
+                || $i == 4
+                || $i == 5
+                || $i == 6
+                || $i == 7
+                || $i == 8
+            ) {
+                if (is_numeric($request["answer_$i"])) {
+                    $MathFour += $request["answer_$i"];
+                }
+            }
+
+            if (
+                $i == 9
+                || $i == 10
+                || $i == 11
+                || $i == 12
+            ) {
+                if (is_numeric($request["answer_$i"])) {
+                    $MathTree += $request["answer_$i"];
+                }
+            }
+
+            if (
+                $i == 13
+                || $i == 14
+                || $i == 15
+                || $i == 16
+                || $i == 17
+                || $i == 18
+                || $i == 19
+                || $i == 20
+                || $i == 21
+                || $i == 22
+            ) {
+                if (is_numeric($request["answer_$i"])) {
+                    $MathTwo += $request["answer_$i"];
+                }
+            }
+
+            if (
+                $i == 23
+                || $i == 24
+                || $i == 25
+                || $i == 26
+                || $i == 27
+                || $i == 28
+                || $i == 29
+                || $i == 30
+                || $i == 31
+            ) {
+                if (is_numeric($request["answer_$i"])) {
+                    $MathProm += $request["answer_$i"];
+                }
+            }
+        }
+
+        $MathFour = round(($MathFour / 8) * 4, 2);
+        $MathTree = round(($MathTree / 4) * 3, 2);
+        $MathTwo = round(($MathTwo / 10) * 2, 2);
+        $MathProm = round($MathProm / 9, 2);
+
+        $Rawscore = $MathFour + $MathTree + $MathTwo + $MathProm;
+
+        $transformDataStress = null;
+        $baremoDataStress = null;
+
+        if ($Rawscore >= 0) {
+            $transformDataStress = round(($Rawscore / 61.16) * 100, 2);
+
+            if ($Employee[0]->position_type == 'Profesional, analista, técnico, tecnólogo' || $Employee[0]->position_type == 'Jefatura - tiene personal a cargo') {
+                if ($transformDataStress <= 7.8) {
+                    $baremoDataStress = "Muy bajo";
+                } else if ($transformDataStress <= 12.6) {
+                    $baremoDataStress = "Bajo";
+                } else if ($transformDataStress <= 17.7) {
+                    $baremoDataStress = "Medio";
+                } else if ($transformDataStress <= 25) {
+                    $baremoDataStress = "Alto";
+                } else {
+                    $baremoDataStress = "Muy alto";
+                }
+            } else {
+                if ($transformDataStress <= 6.5) {
+                    $baremoDataStress = "Muy bajo";
+                } else if ($transformDataStress <= 11.8) {
+                    $baremoDataStress = "Bajo";
+                } else if ($transformDataStress <= 17) {
+                    $baremoDataStress = "Medio";
+                } else if ($transformDataStress <= 23.4) {
+                    $baremoDataStress = "Alto";
+                } else {
+                    $baremoDataStress = "Muy alto";
+                }
+            }
+        }
+
+        $updateData = [
+            'response_date' => $request->response_date,
+            'answer_1' => $request->answer_1,
+            'answer_2' => $request->answer_2,
+            'answer_3' => $request->answer_3,
+            'answer_4' => $request->answer_4,
+            'answer_5' => $request->answer_5,
+            'answer_6' => $request->answer_6,
+            'answer_7' => $request->answer_7,
+            'answer_8' => $request->answer_8,
+            'answer_9' => $request->answer_9,
+            'answer_10' => $request->answer_10,
+            'answer_11' => $request->answer_11,
+            'answer_12' => $request->answer_12,
+            'answer_13' => $request->answer_13,
+            'answer_14' => $request->answer_14,
+            'answer_15' => $request->answer_15,
+            'answer_16' => $request->answer_16,
+            'answer_17' => $request->answer_17,
+            'answer_18' => $request->answer_18,
+            'answer_19' => $request->answer_19,
+            'answer_20' => $request->answer_20,
+            'answer_21' => $request->answer_21,
+            'answer_22' => $request->answer_22,
+            'answer_23' => $request->answer_23,
+            'answer_24' => $request->answer_24,
+            'answer_25' => $request->answer_25,
+            'answer_26' => $request->answer_26,
+            'answer_27' => $request->answer_27,
+            'answer_28' => $request->answer_28,
+            'answer_29' => $request->answer_29,
+            'answer_30' => $request->answer_30,
+            'answer_31' => $request->answer_31,
+        ];
+
+        $EmployeeLevels = new Employees();
+        $resultExistsEmployee = $EmployeeLevels
+            ->join('psychosocial_questionnaires', 'psychosocial_employees.employee_id', '=', 'psychosocial_questionnaires.employee_id')
+            ->where('psychosocial_questionnaires.questionnaire_id', $request->questionnaire_id)
+            ->select('psychosocial_employees.*')
+            ->first();
+
+        $answersStress = Stress::updateOrCreate(
+            ['questionnaire_id' => $request->questionnaire_id],
+            $updateData
+        );
+
+        $measurement_id = $QuestionnaireExits->measurement_id;
+        $questionnaireType = $QuestionnaireExits->type_questionarie;
+
+        $Result = new Results();
+        $resultExists = $Result->where('questionnaire_id', $request->questionnaire_id)
+            ->where('measurement_id', $measurement_id)
+            ->where('type_questionnaire', $questionnaireType)
+            ->first();
+
+        if ($resultExists != null) {
+            $insertResults = $resultExists;
+
+            if (!empty($insertResults->intrawork_level_results_general)) {
+                if ($insertResults->intrawork_level_results_general == "Riesgo muy alto" && $insertResults->stress_level_results_general == "Muy alto") {
+                    $insertResults->results_cap_intra++;
+                } elseif ($insertResults->intrawork_level_results_general == "Riesgo muy alto" && $insertResults->stress_level_results_general == "Alto") {
+                    $insertResults->results_cap_intra++;
+                } elseif ($insertResults->intrawork_level_results_general == "Riesgo alto" && $insertResults->stress_level_results_general == "Muy alto") {
+                    $insertResults->results_cap_intra++;
+                } elseif ($insertResults->intrawork_level_results_general == "Riesgo alto" && $insertResults->stress_level_results_general == "Alto") {
+                    $insertResults->results_cap_intra++;
+                }
+            }
+
+            if (!empty($insertResults->extrawork_level_results_general)) {
+                if ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->extrawork_level_results_general == "Riesgo muy alto") {
+                    $insertResults->results_cap_extra++;
+                } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->extrawork_level_results_general == "Riesgo muy alto") {
+                    $insertResults->results_cap_extra++;
+                } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->extrawork_level_results_general == "Riesgo alto") {
+                    $insertResults->results_cap_extra++;
+                } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->extrawork_level_results_general == "Riesgo alto") {
+                    $insertResults->results_cap_extra++;
+                }
+            }
+
+            if ($insertResults->results_cap_intra == 1 && $insertResults->results_cap_extra == 1 && $insertResults->results_cap_intra_extra == 0) {
+                $insertResults->results_cap_intra_extra++;
+            }
+
+            if ($insertResults->stress_level_results_general == "Medio") {
+                $insertResults->results_stress_medium++;
+            }
+
+            if ($insertResults->results_stress_no_specific == 0) {
+                if ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Riesgo bajo" && $insertResults->extrawork_level_results_general == "Riesgo bajo") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Riesgo bajo" && $insertResults->extrawork_level_results_general == "Riesgo bajo") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Sin riesgo o riesgo despreciable" && $insertResults->extrawork_level_results_general == "Sin riesgo o riesgo despreciable") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Sin riesgo o riesgo despreciable" && $insertResults->extrawork_level_results_general == "Sin riesgo o riesgo despreciable") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Riesgo bajo" && $insertResults->extrawork_level_results_general == "Sin riesgo o riesgo despreciable") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Sin riesgo o riesgo despreciable" && $insertResults->extrawork_level_results_general == "Riesgo bajo") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Riesgo bajo" && $insertResults->extrawork_level_results_general == "Sin riesgo o riesgo despreciable") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Sin riesgo o riesgo despreciable" && $insertResults->extrawork_level_results_general == "Riesgo bajo") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Riesgo bajo" && $insertResults->extrawork_level_results_general == "Riesgo medio") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Riesgo medio" && $insertResults->extrawork_level_results_general == "Riesgo bajo") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Riesgo bajo" && $insertResults->extrawork_level_results_general == "Riesgo medio") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Riesgo medio" && $insertResults->extrawork_level_results_general == "Riesgo bajo") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Sin riesgo o riesgo despreciable" && $insertResults->extrawork_level_results_general == "Riesgo medio") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Riesgo medio" && $insertResults->extrawork_level_results_general == "Sin riesgo o riesgo despreciable") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Sin riesgo o riesgo despreciable" && $insertResults->extrawork_level_results_general == "Riesgo medio") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Riesgo medio" && $insertResults->extrawork_level_results_general == "Sin riesgo o riesgo despreciable") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Riesgo medio" && $insertResults->extrawork_level_results_general == "Riesgo medio") {
+                    $insertResults->results_stress_no_specific++;
+                } elseif ($insertResults->stress_level_results_general == "Alto" &&  $insertResults->intrawork_level_results_general == "Riesgo medio" && $insertResults->extrawork_level_results_general == "Riesgo medio") {
+                    $insertResults->results_stress_no_specific++;
+                } else {
+                    $insertResults->results_stress_no_specific = 0;
+                }
+            }
+        } else {
+            $insertResults = $Result;
+        }
+
+        $insertResults->questionnaire_id = $request->questionnaire_id;
+        $insertResults->measurement_id = $measurement_id;
+        $insertResults->type_questionnaire = $questionnaireType;
+
+        $insertResults->stress_results_general = $transformDataStress;
+        $insertResults->stress_level_results_general = $baremoDataStress;
+        $insertResults->stress_raw_results_general = $Rawscore;
+
+        if ($insertResults->results_cap_intra == 0 && !empty($insertResults->intrawork_level_results_general)) {
+            if ($insertResults->intrawork_level_results_general == "Riesgo muy alto" && $insertResults->stress_level_results_general == "Muy alto") {
+                $insertResults->results_cap_intra++;
+            } elseif ($insertResults->intrawork_level_results_general == "Riesgo muy alto" && $insertResults->stress_level_results_general == "Alto") {
+                $insertResults->results_cap_intra++;
+            } elseif ($insertResults->intrawork_level_results_general == "Riesgo alto" && $insertResults->stress_level_results_general == "Muy alto") {
+                $insertResults->results_cap_intra++;
+            } elseif ($insertResults->intrawork_level_results_general == "Riesgo alto" && $insertResults->stress_level_results_general == "Alto") {
+                $insertResults->results_cap_intra++;
+            }
+        }
+
+        if (!empty($insertResults->extrawork_level_results_general)) {
+            if ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->extrawork_level_results_general == "Riesgo muy alto") {
+                $insertResults->results_cap_extra++;
+            } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->extrawork_level_results_general == "Riesgo muy alto") {
+                $insertResults->results_cap_extra++;
+            } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->extrawork_level_results_general == "Riesgo alto") {
+                $insertResults->results_cap_extra++;
+            } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->extrawork_level_results_general == "Riesgo alto") {
+                $insertResults->results_cap_extra++;
+            }
+        }
+
+        if ($insertResults->results_cap_intra == 1 && $insertResults->results_cap_extra == 1 && $insertResults->results_cap_intra_extra == 0) {
+            $insertResults->results_cap_intra_extra++;
+        }
+
+        if ($insertResults->stress_level_results_general == "Medio") {
+            $insertResults->results_stress_medium++;
+        }
+
+        if ($insertResults->results_stress_no_specific == 0) {
+            if ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Riesgo bajo" && $insertResults->extrawork_level_results_general == "Riesgo bajo") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Riesgo bajo" && $insertResults->extrawork_level_results_general == "Riesgo bajo") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Sin riesgo o riesgo despreciable" && $insertResults->extrawork_level_results_general == "Sin riesgo o riesgo despreciable") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Sin riesgo o riesgo despreciable" && $insertResults->extrawork_level_results_general == "Sin riesgo o riesgo despreciable") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Riesgo bajo" && $insertResults->extrawork_level_results_general == "Sin riesgo o riesgo despreciable") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Sin riesgo o riesgo despreciable" && $insertResults->extrawork_level_results_general == "Riesgo bajo") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Riesgo bajo" && $insertResults->extrawork_level_results_general == "Sin riesgo o riesgo despreciable") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Sin riesgo o riesgo despreciable" && $insertResults->extrawork_level_results_general == "Riesgo bajo") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Riesgo bajo" && $insertResults->extrawork_level_results_general == "Riesgo medio") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Riesgo medio" && $insertResults->extrawork_level_results_general == "Riesgo bajo") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Riesgo bajo" && $insertResults->extrawork_level_results_general == "Riesgo medio") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Riesgo medio" && $insertResults->extrawork_level_results_general == "Riesgo bajo") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Sin riesgo o riesgo despreciable" && $insertResults->extrawork_level_results_general == "Riesgo medio") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Alto" && $insertResults->intrawork_level_results_general == "Riesgo medio" && $insertResults->extrawork_level_results_general == "Sin riesgo o riesgo despreciable") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Sin riesgo o riesgo despreciable" && $insertResults->extrawork_level_results_general == "Riesgo medio") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Riesgo medio" && $insertResults->extrawork_level_results_general == "Sin riesgo o riesgo despreciable") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Muy alto" && $insertResults->intrawork_level_results_general == "Riesgo medio" && $insertResults->extrawork_level_results_general == "Riesgo medio") {
+                $insertResults->results_stress_no_specific++;
+            } elseif ($insertResults->stress_level_results_general == "Alto" &&  $insertResults->intrawork_level_results_general == "Riesgo medio" && $insertResults->extrawork_level_results_general == "Riesgo medio") {
+                $insertResults->results_stress_no_specific++;
+            } else {
+                $insertResults->results_stress_no_specific = 0;
+            }
+        }
+
+        if (
+            $insertResults->company_id == null &&
+            $insertResults->city == null &&
+            $insertResults->first_level == null &&
+            $insertResults->second_level == null &&
+            $insertResults->third_level == null &&
+            $insertResults->fourth_level == null &&
+            $insertResults->fifth_level == null &&
+            $insertResults->sixth_level == null &&
+            $insertResults->seventh_level == null &&
+            $insertResults->eighth_level == null
+        ) {
+            $insertResults->type_questionnaire = $questionnaireType;
+            $insertResults->company_id = $resultExistsEmployee->company_id;
+            $insertResults->city = $resultExistsEmployee->city;
+            $insertResults->position = $resultExistsEmployee->position;
+
+            $insertResults->first_level = $resultExistsEmployee->first_level;
+            $insertResults->second_level = $resultExistsEmployee->second_level;
+            $insertResults->third_level = $resultExistsEmployee->third_level;
+            $insertResults->fourth_level = $resultExistsEmployee->fourth_level;
+            $insertResults->fifth_level = $resultExistsEmployee->fifth_level;
+            $insertResults->sixth_level = $resultExistsEmployee->sixth_level;
+            $insertResults->seventh_level = $resultExistsEmployee->seventh_level;
+            $insertResults->eighth_level = $resultExistsEmployee->eighth_level;
+        }
+
+        $QuestionnaireExits->state_stress = 'Realizado';
+
+        if ($insertResults->save() && $QuestionnaireExits->save() && $answersStress) {
+            return response()->json(['message' => "Se han registrado los respuestas exitosamente."], 200);
+        } else {
+            return response()->json(['error' => "No se ha podido registrar las respuestas.", 'Questionnaire' => 'Estrés'], 500);
         }
     }
 }
