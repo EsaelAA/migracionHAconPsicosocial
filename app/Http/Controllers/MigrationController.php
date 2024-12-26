@@ -9,12 +9,14 @@ use App\Models\CompanyPlatform;
 use App\Models\Empleados2011;
 use App\Models\Employees;
 use App\Models\fichadatosgenerales;
+use App\Models\GeneralData;
 use App\Models\IntraWorkA;
 use App\Models\IntraWorkB;
 use App\Models\MeasurementCompanies;
 use App\Models\Measurements;
 use App\Models\Questionnaires;
 use App\Models\Results;
+use Carbon\Carbon;
 use DateTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -2592,6 +2594,248 @@ class MigrationController extends Controller
             return response()->json(['message' => "Se han registrado las respuestas exitosamente."], 200);
         } else {
             return response()->json(['error' => "No se ha podido registrar las respuestas.", 'Questionnaire' => 'Intalaboral'], 500);
+        }
+    }
+
+    public function migrateQuestionnaireGeneralData()
+    {
+        $Caliriesgo = fichadatosgenerales::all();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "gender" => $answerOld->sexo,
+                "birth_date" => $answerOld->anodenacimiento,
+                "civil_status" => $answerOld->estadocivil,
+                "level_study" => $answerOld->niveldeestudio,
+                "occupation" => $answerOld->ocupacion,
+                "municipality" => $answerOld->muniresidencia,
+                "stratum" => $answerOld->estrato,
+                "type_housing" => $answerOld->vivienda,
+                "dependents" => $answerOld->personasacargo,
+                "municipality_work" => $answerOld->munitrabajo,
+                "years_work" => $answerOld->anostrabajo2,
+                "position" => $answerOld->cargo,
+                "position_type" => $answerOld->tipodecargo,
+                "position_years" => $answerOld->añoscargo2,
+                "area" => $answerOld->area,
+                "type_contract" => $answerOld->contrato,
+                "hours_work" => $answerOld->añoscargo2,
+                "salary_type" => $answerOld->salario,
+            ];
+
+            $dataGeneral = new Request();
+            $dataGeneral->replace($data);
+
+            $this->createGeneralDataUser($dataGeneral);
+        }
+    }
+
+    public function createGeneralDataUser(Request $request)
+    {
+        $Questionnaire = Questionnaires::where('questionnaire_id', $request->questionnaire_id)->first();
+
+        if (!$Questionnaire) {
+            return;
+        }
+
+        $birthDate = $request->birth_date;
+
+        if ($birthDate != '') {
+            if (preg_match('/^\d{4}$/', $birthDate)) {
+                $birthDate .= '-01-01';
+            }
+        } else {
+            $birthDate = null;
+        }
+
+        $civil_status = $request->civil_status;
+
+        if ($civil_status == 'Union libre') {
+            $civil_status = 'Unión libre';
+        }
+
+        $level_study = $request->level_study;
+
+        if ($level_study == 'Tecnico / tecnologico incompleto') {
+            $level_study = 'Técnico / tecnológico incompleto';
+        } else if ($level_study == 'Tecnico / tecnologico completo') {
+            $level_study = 'Técnico / tecnológico completo';
+        } else if ($level_study == 'Carrera militar / policia') {
+            $level_study = 'Carrera militar / policía';
+        } else if ($level_study == 'ninguno') {
+            $level_study = 'Ninguno';
+        }
+
+        $stratum = $request->stratum;
+
+        if ($stratum == 'No se') {
+            $stratum = 'No sé';
+        }
+
+        $position_type = $request->position_type;
+
+        if ($position_type == 'Auxiliar, asistente administrativo, asistente tecnico') {
+            $position_type = 'Auxiliar, asistente administrativo, asistente técnico';
+        } else if ($position_type == 'Profesional, analista, tecnico, tecnologo') {
+            $position_type = 'Profesional, analista, técnico, tecnólogo';
+        }
+
+        $type_contract = $request->type_contract;
+
+        if ($type_contract == 'Temporal de menos de 1 ano') {
+            $type_contract = 'Temporal de menos de 1 año';
+        } else if ($type_contract == 'Temporal de 1 ano o mas' || $type_contract == 'Temporal de 1 año o mas' || $type_contract == 'Temporal de 1 ano o más') {
+            $type_contract = 'Temporal de 1 año o más';
+        } else if ($type_contract == 'Termino indefinido') {
+            $type_contract = 'Término indefinido';
+        } else if ($type_contract == 'Prestacion de servicios') {
+            $type_contract = 'Prestación de servicios';
+        } else if ($type_contract == 'No se' || $type_contract == 'no se') {
+            $type_contract = 'No sé';
+        }
+
+        $salary_type = $request->salary_type;
+
+        if ($salary_type == 'Todo vaiable (a destajo, por producción, por comision)' || $salary_type == 'Temporal de 1 año o mas' || $salary_type == 'Todo vaiable (a destajo, por produccion, por comision)' || $salary_type == 'Todo vaiable (a destajo, por produccion, por comisión)') {
+            $salary_type = 'Todo vaiable (a destajo, por producción, por comisión)';
+        }
+
+        $age = Carbon::parse($birthDate)->age;
+
+        if ($age == '') {
+            $rangeAge = '';
+        } else if ($age <= 20) {
+            $rangeAge = '16 a 20';
+        } else if ($age <= 30) {
+            $rangeAge = '21 a 30';
+        } else if ($age <= 40) {
+            $rangeAge = '31 a 40';
+        } else if ($age <= 50) {
+            $rangeAge = '41 a 50';
+        } else if ($age <= 60) {
+            $rangeAge = '51 a 60';
+        } else if ($age <= 70) {
+            $rangeAge = '61 a 70';
+        } else {
+            $rangeAge = 'Mayor de 70';
+        }
+
+        if ($request->years_work == '') {
+            $rangeYearsWork = '';
+        } else if ($request->years_work < 1) {
+            $rangeYearsWork = '0 a 0.9';
+        } else if ($request->years_work <= 5) {
+            $rangeYearsWork = '1 a 5';
+        } else if ($request->years_work <= 10) {
+            $rangeYearsWork = '6 a 10';
+        } else if ($request->years_work <= 15) {
+            $rangeYearsWork = '11 a 15';
+        } else if ($request->years_work <= 20) {
+            $rangeYearsWork = '16 a 20';
+        } else if ($request->years_work <= 25) {
+            $rangeYearsWork = '21 a 25';
+        } else if ($request->years_work <= 30) {
+            $rangeYearsWork = '26 a 30';
+        } else if ($request->years_work <= 40) {
+            $rangeYearsWork = '31 a 40';
+        } else {
+            $rangeYearsWork = 'Más de 40';
+        }
+
+        if ($request->position_years == '') {
+            $rangePositionYears = '';
+        } else if ($request->position_years < 1) {
+            $rangePositionYears = '0 a 0.9';
+        } else if ($request->position_years <= 5) {
+            $rangePositionYears = '1 a 5';
+        } else if ($request->position_years <= 10) {
+            $rangePositionYears = '6 a 10';
+        } else if ($request->position_years <= 15) {
+            $rangePositionYears = '11 a 15';
+        } else if ($request->position_years <= 20) {
+            $rangePositionYears = '16 a 20';
+        } else if ($request->position_years <= 25) {
+            $rangePositionYears = '21 a 25';
+        } else if ($request->position_years <= 30) {
+            $rangePositionYears = '26 a 30';
+        } else if ($request->position_years <= 40) {
+            $rangePositionYears = '31 a 40';
+        } else if ($request->position_years >= 41) {
+            $rangePositionYears = 'Más de 40';
+        } else {
+            $rangePositionYears = '';
+        }
+
+        $positionYears = $request->position_years;
+        if (!is_numeric($positionYears)) {
+            $positionYears = 0;
+        }
+
+        $hoursWork = $request->hours_work;
+        if (!is_numeric($hoursWork)) {
+            $hoursWork = 0;
+        }
+
+        $QuestionnaireGeneralData = GeneralData::updateOrCreate(
+            ['questionnaire_id' => $request->questionnaire_id],
+            [
+                'response_date' => $request->response_date,
+                'type_questionarie' => $Questionnaire->type_questionarie,
+                'gender' => ucfirst(strtolower($request->gender)),
+                'birth_date' => $birthDate,
+                'user_years' => $rangeAge,
+                'civil_status' => $civil_status,
+                'level_study' => $level_study,
+                'occupation' => $request->occupation,
+                'municipality' => $request->municipality,
+                'stratum' => $stratum,
+                'type_housing' => $request->type_housing,
+                'dependents' => $request->dependents,
+                'municipality_work' => $request->municipality_work,
+                'years_work' => $request->years_work,
+                'range_years_work' => $rangeYearsWork,
+                'position' => $request->position,
+                'position_type' => $position_type,
+                'position_years' => $positionYears,
+                'range_position_years' => $rangePositionYears,
+                'area' => $request->area,
+                'type_contract' => $type_contract,
+                'hours_work' => $hoursWork,
+                'salary_type' => $salary_type,
+            ]
+        );
+
+        $Results = new Results();
+        $insertResults = $Results->where('psychosocial_results.questionnaire_id', $request->questionnaire_id)
+            ->first();
+
+        if ($insertResults) {
+            $insertResults->age = $rangeAge;
+            $insertResults->gender = $request->gender;
+            $insertResults->position_years = $rangeYearsWork;
+            $insertResults->work_years = $rangePositionYears;
+            $insertResults->save();
+        }
+
+        $Questionnaire->state_general_data = 'Realizado';
+
+        if ($QuestionnaireGeneralData->save() && $Questionnaire->save()) {
+            return response()->json(['message' => "Se ha creado un cuestionario de ficha de datos generales correctamente"], 200);
+        } else {
+            return response()->json(['error' => "No hemos podido crear el cuestionario de ficha de datos generales, revisa tu petición", 'Questionnaire' => 'Ficha de datos generales'], 500);
         }
     }
 }
