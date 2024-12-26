@@ -6,6 +6,7 @@ use App\Models\caliestres_pontificia;
 use App\Models\caliextralaborales;
 use App\Models\caliriesgopsicosocialparte1;
 use App\Models\caliriesgopsicosocialparte2;
+use App\Models\clima;
 use App\Models\Company;
 use App\Models\CompanyPlatform;
 use App\Models\Empleados2011;
@@ -20,6 +21,7 @@ use App\Models\Measurements;
 use App\Models\Questionnaires;
 use App\Models\Results;
 use App\Models\Stress;
+use App\Models\Weather;
 use Carbon\Carbon;
 use DateTime;
 use Illuminate\Http\Request;
@@ -4101,6 +4103,105 @@ class MigrationController extends Controller
             return response()->json(['message' => "Se han registrado los respuestas exitosamente."], 200);
         } else {
             return response()->json(['error' => "No se ha podido registrar las respuestas.", 'Questionnaire' => 'Estrés'], 500);
+        }
+    }
+
+    public function migrateQuestionnaireWeather()
+    {
+        $Caliriesgo = clima::all();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+                return $answerOld;
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerWeather($dataIntrawork);
+        }
+    }
+
+    public function registerWeather(Request $request)
+    {
+        $QuestionnaireExits = Questionnaires::where('questionnaire_id', $request->questionnaire_id)->first();
+
+        if (!$QuestionnaireExits) {
+            return;
+        }
+
+        $weather = new Weather();
+        $weather->questionnaire_id = $request->questionnaire_id;
+        $weather->response_date = $request->response_date;
+
+        for ($i = 1; $i <= 44; $i++) {
+            $weather->{"answer_$i"} = $request->input("answer_$i");
+        }
+
+        $QuestionnaireExits->state_weather = 'Realizado';
+
+        if ($weather->save() && $QuestionnaireExits->save()) {
+            return response()->json(['message' => "El questionario de clima se ha guardado con éxito."], 200);
+        } else {
+            return response()->json(['error' => "No se ha podido guardar su registro por favor verifique los datos."], 500);
         }
     }
 }

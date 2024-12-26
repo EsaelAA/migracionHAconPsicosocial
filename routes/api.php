@@ -9,3 +9,4 @@ Route::get('/migrateQuestionnaireB', [MigrationController::class, 'migrateQuesti
 Route::get('/migrateQuestionnaireGeneralData', [MigrationController::class, 'migrateQuestionnaireGeneralData']);
 Route::get('/migrateQuestionnaireExtrawork', [MigrationController::class, 'migrateQuestionnaireExtrawork']);
 Route::get('/migrateQuestionnaireStress', [MigrationController::class, 'migrateQuestionnaireStress']);
+Route::get('/migrateQuestionnaireWeather', [MigrationController::class, 'migrateQuestionnaireWeather']);
