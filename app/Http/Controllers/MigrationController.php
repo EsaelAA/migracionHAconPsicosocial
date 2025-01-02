@@ -3566,7 +3566,7 @@ class MigrationController extends Controller
 
         $birthDate = $request->birth_date;
 
-        if ($birthDate != '') {
+        if ($birthDate != '' && $birthDate != '-' && $birthDate != 'x' && $birthDate != 'y') {
             if (preg_match('/^\d{4}$/', $birthDate)) {
                 $birthDate .= '-01-01';
             }
@@ -3646,23 +3646,28 @@ class MigrationController extends Controller
             $rangeAge = 'Mayor de 70';
         }
 
-        if ($request->years_work == '') {
+        $yearsWork = $request->years_work;
+        if(!is_numeric($yearsWork)){
+            $yearsWork = "";
+        }
+
+        if ($yearsWork == '') {
             $rangeYearsWork = '';
-        } else if ($request->years_work < 1) {
+        } else if ($yearsWork < 1) {
             $rangeYearsWork = '0 a 0.9';
-        } else if ($request->years_work <= 5) {
+        } else if ($yearsWork <= 5) {
             $rangeYearsWork = '1 a 5';
-        } else if ($request->years_work <= 10) {
+        } else if ($yearsWork <= 10) {
             $rangeYearsWork = '6 a 10';
-        } else if ($request->years_work <= 15) {
+        } else if ($yearsWork <= 15) {
             $rangeYearsWork = '11 a 15';
-        } else if ($request->years_work <= 20) {
+        } else if ($yearsWork <= 20) {
             $rangeYearsWork = '16 a 20';
-        } else if ($request->years_work <= 25) {
+        } else if ($yearsWork <= 25) {
             $rangeYearsWork = '21 a 25';
-        } else if ($request->years_work <= 30) {
+        } else if ($yearsWork <= 30) {
             $rangeYearsWork = '26 a 30';
-        } else if ($request->years_work <= 40) {
+        } else if ($yearsWork <= 40) {
             $rangeYearsWork = '31 a 40';
         } else {
             $rangeYearsWork = 'Más de 40';
@@ -3702,6 +3707,11 @@ class MigrationController extends Controller
             $hoursWork = 0;
         }
 
+        $dependents = null;
+        if(is_numeric($request->dependents)){
+            $dependents = $request->dependents;
+        }
+
         $QuestionnaireGeneralData = GeneralData::updateOrCreate(
             ['questionnaire_id' => $request->questionnaire_id],
             [
@@ -3716,9 +3726,9 @@ class MigrationController extends Controller
                 'municipality' => $request->municipality,
                 'stratum' => $stratum,
                 'type_housing' => $request->type_housing,
-                'dependents' => $request->dependents,
+                'dependents' => $dependents,
                 'municipality_work' => $request->municipality_work,
-                'years_work' => $request->years_work,
+                'years_work' => $yearsWork,
                 'range_years_work' => $rangeYearsWork,
                 'position' => $request->position,
                 'position_type' => $position_type,
