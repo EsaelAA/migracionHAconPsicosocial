@@ -9,7 +9,8 @@ use App\Models\caliriesgopsicosocialparte2;
 use App\Models\clima;
 use App\Models\Company;
 use App\Models\CompanyPlatform;
-use App\Models\Empleados2011;
+use App\Models\Empleados;
+use App\Models\Empleados2024;
 use App\Models\Employees;
 use App\Models\Extrawork;
 use App\Models\fichadatosgenerales;
@@ -30,31 +31,82 @@ use Illuminate\Support\Facades\Hash;
 
 class MigrationController extends Controller
 {
+    public function formatYear($fecha)
+    {
+        if (Carbon::hasFormat($fecha, 'd/m/Y')) {
+            return Carbon::createFromFormat('d/m/Y', $fecha)->year;
+        } elseif (Carbon::hasFormat($fecha, 'Y-m-d')) {
+            return Carbon::createFromFormat('Y-m-d', $fecha)->year;
+        } elseif (Carbon::hasFormat($fecha, 'Y/m/d')) {
+            return Carbon::createFromFormat('Y/m/d', $fecha)->year;
+        } else {
+            return Carbon::createFromFormat('d/m/Y', $fecha)->year;
+        }
+    }
+
     public function migrateEmployees()
     {
         set_time_limit(12000000);
 
-        $Empleados2011 = Empleados2011::all();
+        $Empleados2011 = Empleados::all();
 
         foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
             if ($empleado2011->empresa == "") {
                 continue;
             }
 
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+
+            if ($fichadatosgenerales) {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
             $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
 
             $measurementName = "MEDICIÓN $companyName->company_name";
 
-            $ifExistsMeasurement = Measurements::where('measurement_name', '=', $measurementName)->first();
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
 
             $measurementId = "";
             if (!$ifExistsMeasurement) {
                 $measurement = Measurements::create([
                     'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
-                    'measurement_year' => "2011",
+                    'measurement_year' => $year,
                     'state' => 0,
-                    'start_date' => '2011-01-01 07:30:00',
-                    'end_date' => '2011-12-31 12:35:00'
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
                 ]);
 
                 MeasurementCompanies::create([
@@ -80,13 +132,6 @@ class MigrationController extends Controller
                 continue;
             }
 
-            $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
-
-            if ($fichadatosgenerales) {
-                $positionType = $fichadatosgenerales->tipodecargo;
-            }
-
             $Employees = Employees::create([
                 'company_id' => $companyName->company_id,
                 'measurement_id' => $measurementId,
@@ -97,12 +142,12 @@ class MigrationController extends Controller
                 'position' => mb_strtoupper($empleado2011->cargo),
                 'position_type' => $positionType,
                 'email' => $empleado2011->email,
-                'username' => "CERRADO-2011",
-                'password' => "CERRADO-2011",
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
                 'first_level' => mb_strtoupper($empleado2011->oficina),
                 'second_level' => mb_strtoupper($empleado2011->sede),
                 'third_level' => mb_strtoupper($empleado2011->ciclos),
-                'fourth_level' => "",
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
                 'fifth_level' => "",
                 'sixth_level' => "",
                 'seventh_level' => "",
@@ -132,8 +177,820 @@ class MigrationController extends Controller
         }
     }
 
+    public function migrateEmployees2017()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            if ($fichadatosgenerales) {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($year != "2017") {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => "",
+                'sixth_level' => "",
+                'seventh_level' => "",
+                'eighth_level' => "",
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
+    public function migrateEmployees2018()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            if ($fichadatosgenerales) {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($year != "2018") {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => mb_strtoupper($empleado2011->proceso),
+                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
+                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
+    public function migrateEmployees2019()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            if ($fichadatosgenerales) {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($year != "2019") {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => mb_strtoupper($empleado2011->proceso),
+                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
+                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
+    public function migrateEmployees2020()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            if ($fichadatosgenerales) {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($year != "2020") {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => mb_strtoupper($empleado2011->proceso),
+                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
+                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
+    public function migrateEmployees2021()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            if ($fichadatosgenerales) {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($year != "2021") {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => mb_strtoupper($empleado2011->proceso),
+                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
+                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
+    public function migrateEmployees2024()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados2024::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+
+            if ($fichadatosgenerales && $empleado2011->ciclos2 == '-') {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => mb_strtoupper($empleado2011->proceso),
+                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
+                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
+                'eighth_level' => "",
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
     public function migrateQuestionnaireA()
     {
+        set_time_limit(12000000);
+
         $Caliriesgo1 = caliriesgopsicosocialparte1::all();
 
         foreach ($Caliriesgo1 as $answerOld) {
@@ -146,7 +1003,13 @@ class MigrationController extends Controller
             }
 
             $fechaOriginal = $answerOld->fechaaplicacion;
-            $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
 
             $data = [
                 "questionnaire_id" => $Employees->questionnaire_id,
@@ -289,6 +1152,12 @@ class MigrationController extends Controller
         $QuestionnaireExits = Questionnaires::where('questionnaire_id', $request->questionnaire_id)->first();
 
         if (!$QuestionnaireExits) {
+            return;
+        }
+
+        $resultExists = IntraworkA::where('questionnaire_id', $request->questionnaire_id)->first();
+
+        if ($resultExists) {
             return;
         }
 
@@ -1460,6 +2329,8 @@ class MigrationController extends Controller
 
     public function migrateQuestionnaireB()
     {
+        set_time_limit(12000000);
+
         $Caliriesgo = caliriesgopsicosocialparte2::all();
 
         foreach ($Caliriesgo as $answerOld) {
@@ -1472,7 +2343,13 @@ class MigrationController extends Controller
             }
 
             $fechaOriginal = $answerOld->fechaaplicacion;
-            $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
 
             $data = [
                 "questionnaire_id" => $Employees->questionnaire_id,
@@ -1589,6 +2466,12 @@ class MigrationController extends Controller
         $QuestionnaireExits = Questionnaires::where('questionnaire_id', $request->questionnaire_id)->first();
 
         if (!$QuestionnaireExits) {
+            return;
+        }
+
+        $resultExists = IntraworkB::where('questionnaire_id', $request->questionnaire_id)->first();
+
+        if ($resultExists) {
             return;
         }
 
@@ -2615,6 +3498,8 @@ class MigrationController extends Controller
 
     public function migrateQuestionnaireGeneralData()
     {
+        set_time_limit(12000000);
+
         $Caliriesgo = fichadatosgenerales::all();
 
         foreach ($Caliriesgo as $answerOld) {
@@ -2627,7 +3512,13 @@ class MigrationController extends Controller
             }
 
             $fechaOriginal = $answerOld->fechaaplicacion;
-            $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
 
             $data = [
                 "questionnaire_id" => $Employees->questionnaire_id,
@@ -2664,6 +3555,12 @@ class MigrationController extends Controller
         $Questionnaire = Questionnaires::where('questionnaire_id', $request->questionnaire_id)->first();
 
         if (!$Questionnaire) {
+            return;
+        }
+
+        $resultExists = GeneralData::where('questionnaire_id', $request->questionnaire_id)->first();
+
+        if ($resultExists) {
             return;
         }
 
@@ -2857,6 +3754,8 @@ class MigrationController extends Controller
 
     public function migrateQuestionnaireExtrawork()
     {
+        set_time_limit(12000000);
+
         $Caliriesgo = caliextralaborales::all();
 
         foreach ($Caliriesgo as $answerOld) {
@@ -2869,7 +3768,13 @@ class MigrationController extends Controller
             }
 
             $fechaOriginal = $answerOld->fechaaplicacion;
-            $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
 
             $data = [
                 "questionnaire_id" => $Employees->questionnaire_id,
@@ -2919,6 +3824,12 @@ class MigrationController extends Controller
         $QuestionnaireExits = Questionnaires::where('questionnaire_id', $request->questionnaire_id)->first();
 
         if (!$QuestionnaireExits) {
+            return;
+        }
+
+        $resultExists = Extrawork::where('questionnaire_id', $request->questionnaire_id)->first();
+
+        if ($resultExists) {
             return;
         }
 
@@ -3591,6 +4502,8 @@ class MigrationController extends Controller
 
     public function migrateQuestionnaireStress()
     {
+        set_time_limit(12000000);
+
         $Caliriesgo = caliestres_pontificia::all();
 
         foreach ($Caliriesgo as $answerOld) {
@@ -3603,7 +4516,13 @@ class MigrationController extends Controller
             }
 
             $fechaOriginal = $answerOld->fechaaplicacion;
-            $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
 
             $data = [
                 "questionnaire_id" => $Employees->questionnaire_id,
@@ -3653,6 +4572,12 @@ class MigrationController extends Controller
         $QuestionnaireExits = Questionnaires::where('questionnaire_id', $request->questionnaire_id)->first();
 
         if (!$QuestionnaireExits) {
+            return;
+        }
+
+        $resultExists = Stress::where('questionnaire_id', $request->questionnaire_id)->first();
+
+        if ($resultExists) {
             return;
         }
 
@@ -4115,14 +5040,20 @@ class MigrationController extends Controller
                 ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
                 ->first();
 
-                return $answerOld;
+            return $answerOld;
 
             if (!$Employees) {
                 continue;
             }
 
             $fechaOriginal = $answerOld->fechaaplicacion;
-            $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
 
             $data = [
                 "questionnaire_id" => $Employees->questionnaire_id,
