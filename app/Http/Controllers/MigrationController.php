@@ -4340,7 +4340,9 @@ class MigrationController extends Controller
     {
         set_time_limit(12000000);
 
-        $Empleados2011 = Empleados::all();
+        $Empleados2011 = Empleados::join('fichadatosgenerales', 'fichadatosgenerales.cc', '=', 'empleados.cc')
+            ->where('fichadatosgenerales.fechaaplicacion', 'LIKE', '%2017%')
+            ->get();
 
         foreach ($Empleados2011 as $empleado2011) {
             $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
@@ -4355,15 +4357,14 @@ class MigrationController extends Controller
             }
 
             $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
 
-            if ($fichadatosgenerales) {
-                $positionType = $fichadatosgenerales->tipodecargo;
+            $year = $this->formatYear($empleado2011->fechaaplicacion);
+
+            if ($empleado2011) {
+                $positionType = $empleado2011->tipodecargo;
             } else {
                 continue;
             }
-
 
             $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
 
@@ -4421,10 +4422,6 @@ class MigrationController extends Controller
                 ->first();
 
             if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($year != "2017") {
                 continue;
             }
 
@@ -4959,7 +4956,9 @@ class MigrationController extends Controller
     {
         set_time_limit(12000000);
 
-        $Empleados2011 = Empleados::all();
+        $Empleados2011 = Empleados::join('fichadatosgenerales', 'fichadatosgenerales.cc', '=', 'empleados.cc')
+            ->where('fichadatosgenerales.fechaaplicacion', 'LIKE', '%2018%')
+            ->get();
 
         foreach ($Empleados2011 as $empleado2011) {
             $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
@@ -4974,15 +4973,14 @@ class MigrationController extends Controller
             }
 
             $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
 
-            if ($fichadatosgenerales) {
-                $positionType = $fichadatosgenerales->tipodecargo;
+            $year = $this->formatYear($empleado2011->fechaaplicacion);
+
+            if ($empleado2011) {
+                $positionType = $empleado2011->tipodecargo;
             } else {
                 continue;
             }
-
 
             $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
 
@@ -5040,10 +5038,6 @@ class MigrationController extends Controller
                 ->first();
 
             if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($year != "2018") {
                 continue;
             }
 
@@ -5577,7 +5571,9 @@ class MigrationController extends Controller
     {
         set_time_limit(12000000);
 
-        $Empleados2011 = Empleados::all();
+        $Empleados2011 = Empleados::join('fichadatosgenerales', 'fichadatosgenerales.cc', '=', 'empleados.cc')
+            ->where('fichadatosgenerales.fechaaplicacion', 'LIKE', '%2019%')
+            ->get();
 
         foreach ($Empleados2011 as $empleado2011) {
             $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
@@ -5592,15 +5588,13 @@ class MigrationController extends Controller
             }
 
             $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+            $year = $this->formatYear($empleado2011->fechaaplicacion);
 
-            if ($fichadatosgenerales) {
-                $positionType = $fichadatosgenerales->tipodecargo;
+            if ($empleado2011) {
+                $positionType = $empleado2011->tipodecargo;
             } else {
                 continue;
             }
-
 
             $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
 
@@ -5658,10 +5652,6 @@ class MigrationController extends Controller
                 ->first();
 
             if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($year != "2019") {
                 continue;
             }
 
@@ -6195,7 +6185,10 @@ class MigrationController extends Controller
     {
         set_time_limit(12000000);
 
-        $Empleados2011 = Empleados::all();
+        $Empleados2011 = Empleados::join('fichadatosgenerales', 'fichadatosgenerales.cc', '=', 'empleados.cc')
+            ->where('fichadatosgenerales.fechaaplicacion', 'LIKE', '%2019%')
+            ->where('fichadatosgenerales.fechaaplicacion', 'LIKE', '%2020%')
+            ->get();
 
         foreach ($Empleados2011 as $empleado2011) {
             $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
@@ -6210,15 +6203,13 @@ class MigrationController extends Controller
             }
 
             $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+            $year = $this->formatYear($empleado2011->fechaaplicacion);
 
-            if ($fichadatosgenerales) {
-                $positionType = $fichadatosgenerales->tipodecargo;
+            if ($empleado2011) {
+                $positionType = $empleado2011->tipodecargo;
             } else {
                 continue;
             }
-
 
             $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
 
@@ -6276,10 +6267,6 @@ class MigrationController extends Controller
                 ->first();
 
             if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($year != "2020") {
                 continue;
             }
 
@@ -6818,7 +6805,9 @@ class MigrationController extends Controller
     {
         set_time_limit(12000000);
 
-        $Empleados2011 = Empleados::all();
+        $Empleados2011 = Empleados::join('fichadatosgenerales', 'fichadatosgenerales.cc', '=', 'empleados.cc')
+            ->where('fichadatosgenerales.fechaaplicacion', 'LIKE', '%2021%')
+            ->get();
 
         foreach ($Empleados2011 as $empleado2011) {
             $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
@@ -6833,15 +6822,13 @@ class MigrationController extends Controller
             }
 
             $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+            $year = $this->formatYear($empleado2011->fechaaplicacion);
 
-            if ($fichadatosgenerales) {
-                $positionType = $fichadatosgenerales->tipodecargo;
+            if ($empleado2011) {
+                $positionType = $empleado2011->tipodecargo;
             } else {
                 continue;
             }
-
 
             $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
 
@@ -6899,10 +6886,6 @@ class MigrationController extends Controller
                 ->first();
 
             if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($year != "2021") {
                 continue;
             }
 
@@ -7436,7 +7419,9 @@ class MigrationController extends Controller
     {
         set_time_limit(12000000);
 
-        $Empleados2011 = Empleados2024::all();
+        $Empleados2011 = Empleados::join('fichadatosgenerales', 'fichadatosgenerales.cc', '=', 'empleados.cc')
+            ->where('fichadatosgenerales.fechaaplicacion', 'LIKE', '%2022%')
+            ->get();
 
         foreach ($Empleados2011 as $empleado2011) {
             $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
@@ -7451,15 +7436,14 @@ class MigrationController extends Controller
             }
 
             $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
 
-            if ($fichadatosgenerales && $empleado2011->ciclos2 == '-') {
-                $positionType = $fichadatosgenerales->tipodecargo;
+            if ($empleado2011 && $empleado2011->ciclos2 == '-') {
+                $positionType = $empleado2011->tipodecargo;
             } else {
                 continue;
             }
 
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+            $year = $this->formatYear($empleado2011->fechaaplicacion);
 
             $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
 
@@ -8051,7 +8035,9 @@ class MigrationController extends Controller
     {
         set_time_limit(12000000);
 
-        $Empleados2011 = Empleados2024::all();
+        $Empleados2011 = Empleados2024::join('fichadatosgenerales', 'fichadatosgenerales.cc', '=', 'empleados.cc')
+            ->where('fichadatosgenerales.fechaaplicacion', 'LIKE', '%2023%')
+            ->get();
 
         foreach ($Empleados2011 as $empleado2011) {
             $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
@@ -8066,15 +8052,14 @@ class MigrationController extends Controller
             }
 
             $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
 
-            if ($fichadatosgenerales && $empleado2011->ciclos2 == '-') {
-                $positionType = $fichadatosgenerales->tipodecargo;
+            if ($Empleados2011 && $empleado2011->ciclos2 == '-') {
+                $positionType = $Empleados2011->tipodecargo;
             } else {
                 continue;
             }
 
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+            $year = $this->formatYear($Empleados2011->fechaaplicacion);
 
             $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
 
@@ -8666,7 +8651,9 @@ class MigrationController extends Controller
     {
         set_time_limit(12000000);
 
-        $Empleados2011 = Empleados2024::all();
+        $Empleados2011 = Empleados2024::join('fichadatosgenerales', 'fichadatosgenerales.cc', '=', 'empleados.cc')
+            ->where('fichadatosgenerales.fechaaplicacion', 'LIKE', '%2024%')
+            ->get();
 
         foreach ($Empleados2011 as $empleado2011) {
             $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
@@ -8681,15 +8668,14 @@ class MigrationController extends Controller
             }
 
             $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
 
-            if ($fichadatosgenerales && $empleado2011->ciclos2 == '-') {
-                $positionType = $fichadatosgenerales->tipodecargo;
+            if ($empleado2011 && $empleado2011->ciclos2 == '-') {
+                $positionType = $empleado2011->tipodecargo;
             } else {
                 continue;
             }
 
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+            $year = $this->formatYear($empleado2011->fechaaplicacion);
 
             $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
 
