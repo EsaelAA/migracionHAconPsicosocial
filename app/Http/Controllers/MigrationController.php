@@ -27,10 +27,10 @@ use Carbon\Carbon;
 use DateTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 class MigrationController extends Controller
 {
+    // Funciones nativas
     public function formatYear($fecha)
     {
         if (Carbon::hasFormat($fecha, 'd/m/Y')) {
@@ -41,1109 +41,6 @@ class MigrationController extends Controller
             return Carbon::createFromFormat('Y/m/d', $fecha)->year;
         } else {
             return Carbon::createFromFormat('d/m/Y', $fecha)->year;
-        }
-    }
-
-    public function migrateEmployees()
-    {
-        set_time_limit(12000000);
-
-        $Empleados2011 = Empleados::all();
-
-        foreach ($Empleados2011 as $empleado2011) {
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->first();
-
-            if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($empleado2011->empresa == "") {
-                continue;
-            }
-
-            $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
-
-            if ($fichadatosgenerales) {
-                $positionType = $fichadatosgenerales->tipodecargo;
-            } else {
-                continue;
-            }
-
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
-
-            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
-
-            if (!$companyName) {
-                $companyName = Company::create([
-                    "company_name" => $empleado2011->empresa,
-                    "company_nit" => $empleado2011->nit,
-                    "contact" => "",
-                    "position_contact" => "",
-                    "contact_email" => "",
-                    "address" => "",
-                    "phone" => "",
-                    "cell_phone" => "",
-                    "policy" => "",
-                    "city_id" => 160,
-                    "arl_type_id" => 15,
-                    "client_type_id" => 17,
-                    "reinsurer_type_id" => 3,
-                ]);
-            }
-
-            $measurementName = "MEDICIÓN $companyName->company_name";
-
-            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
-                ->where('measurement_year', '=', $year)
-                ->first();
-
-            $measurementId = "";
-            if (!$ifExistsMeasurement) {
-                $measurement = Measurements::create([
-                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
-                    'measurement_year' => $year,
-                    'state' => 0,
-                    'start_date' => "$year-01-01 07:30:00",
-                    'end_date' => "$year-12-31 12:35:00"
-                ]);
-
-                MeasurementCompanies::create([
-                    'measurement_id' => $measurement->measurement_id,
-                    'company_id' => $companyName->company_id,
-                ]);
-
-                CompanyPlatform::create([
-                    'platform_id' => 2,
-                    'company_id' => $companyName->company_id
-                ]);
-
-                $measurementId = $measurement->measurement_id;
-            } else {
-                $measurementId = $ifExistsMeasurement->measurement_id;
-            }
-
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->where('measurement_id', '=', $measurementId)
-                ->first();
-
-            if ($isEmployeeExists) {
-                continue;
-            }
-
-            $Employees = Employees::create([
-                'company_id' => $companyName->company_id,
-                'measurement_id' => $measurementId,
-                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
-                'document_employee' => $empleado2011->cc,
-                'first_name' => mb_strtoupper($empleado2011->nombres),
-                'last_name' => mb_strtoupper($empleado2011->apellidos),
-                'position' => mb_strtoupper($empleado2011->cargo),
-                'position_type' => $positionType,
-                'email' => $empleado2011->email,
-                'username' => "CERRADO-$year",
-                'password' => "CERRADO-$year",
-                'first_level' => mb_strtoupper($empleado2011->oficina),
-                'second_level' => mb_strtoupper($empleado2011->sede),
-                'third_level' => mb_strtoupper($empleado2011->ciclos),
-                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
-                'fifth_level' => "",
-                'sixth_level' => "",
-                'seventh_level' => "",
-                'eighth_level' => "",
-                'state' => 0
-            ]);
-
-            $intralaboralState = "";
-            if ($empleado2011->notas == 'A') {
-                $intralaboralState = $empleado2011->pruebaintralaboralA;
-            } else {
-                $intralaboralState = $empleado2011->pruebaintralaboralB;
-            }
-
-            $Questionnaires = Questionnaires::create([
-                'measurement_id' => $measurementId,
-                'employee_id' => $Employees->employee_id,
-                'type_questionarie' => $empleado2011->notas,
-                'state_crafft' => "",
-                'state_weather' => $empleado2011->pruebaclima,
-                'state_copping' => "",
-                'state_intrawork' => $intralaboralState,
-                'state_extrawork' => $empleado2011->pruebaextralaboral,
-                'state_general_data' => $empleado2011->pruebadatos,
-                'state_stress' => $empleado2011->pruebaestres
-            ]);
-        }
-    }
-
-    public function migrateEmployees2017()
-    {
-        set_time_limit(12000000);
-
-        $Empleados2011 = Empleados::all();
-
-        foreach ($Empleados2011 as $empleado2011) {
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->first();
-
-            if ($empleado2011->empresa == "") {
-                continue;
-            }
-
-            $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
-
-            if ($fichadatosgenerales) {
-                $positionType = $fichadatosgenerales->tipodecargo;
-            } else {
-                continue;
-            }
-
-
-            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
-
-            if (!$companyName) {
-                $companyName = Company::create([
-                    "company_name" => $empleado2011->empresa,
-                    "company_nit" => $empleado2011->nit,
-                    "contact" => "",
-                    "position_contact" => "",
-                    "contact_email" => "",
-                    "address" => "",
-                    "phone" => "",
-                    "cell_phone" => "",
-                    "policy" => "",
-                    "city_id" => 160,
-                    "arl_type_id" => 15,
-                    "client_type_id" => 17,
-                    "reinsurer_type_id" => 3,
-                ]);
-            }
-
-            $measurementName = "MEDICIÓN $companyName->company_name";
-
-            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
-                ->where('measurement_year', '=', $year)
-                ->first();
-
-            $measurementId = "";
-            if (!$ifExistsMeasurement) {
-                $measurement = Measurements::create([
-                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
-                    'measurement_year' => $year,
-                    'state' => 0,
-                    'start_date' => "$year-01-01 07:30:00",
-                    'end_date' => "$year-12-31 12:35:00"
-                ]);
-
-                MeasurementCompanies::create([
-                    'measurement_id' => $measurement->measurement_id,
-                    'company_id' => $companyName->company_id,
-                ]);
-
-                CompanyPlatform::create([
-                    'platform_id' => 2,
-                    'company_id' => $companyName->company_id
-                ]);
-
-                $measurementId = $measurement->measurement_id;
-            } else {
-                $measurementId = $ifExistsMeasurement->measurement_id;
-            }
-
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->where('measurement_id', '=', $measurementId)
-                ->first();
-
-            if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($year != "2017") {
-                continue;
-            }
-
-            $Employees = Employees::create([
-                'company_id' => $companyName->company_id,
-                'measurement_id' => $measurementId,
-                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
-                'document_employee' => $empleado2011->cc,
-                'first_name' => mb_strtoupper($empleado2011->nombres),
-                'last_name' => mb_strtoupper($empleado2011->apellidos),
-                'position' => mb_strtoupper($empleado2011->cargo),
-                'position_type' => $positionType,
-                'email' => $empleado2011->email,
-                'username' => "CERRADO-$year",
-                'password' => "CERRADO-$year",
-                'first_level' => mb_strtoupper($empleado2011->oficina),
-                'second_level' => mb_strtoupper($empleado2011->sede),
-                'third_level' => mb_strtoupper($empleado2011->ciclos),
-                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
-                'fifth_level' => "",
-                'sixth_level' => "",
-                'seventh_level' => "",
-                'eighth_level' => "",
-                'state' => 0
-            ]);
-
-            $intralaboralState = "";
-            if ($empleado2011->notas == 'A') {
-                $intralaboralState = $empleado2011->pruebaintralaboralA;
-            } else {
-                $intralaboralState = $empleado2011->pruebaintralaboralB;
-            }
-
-            $Questionnaires = Questionnaires::create([
-                'measurement_id' => $measurementId,
-                'employee_id' => $Employees->employee_id,
-                'type_questionarie' => $empleado2011->notas,
-                'state_crafft' => "",
-                'state_weather' => $empleado2011->pruebaclima,
-                'state_copping' => "",
-                'state_intrawork' => $intralaboralState,
-                'state_extrawork' => $empleado2011->pruebaextralaboral,
-                'state_general_data' => $empleado2011->pruebadatos,
-                'state_stress' => $empleado2011->pruebaestres
-            ]);
-        }
-    }
-
-    public function migrateEmployees2018()
-    {
-        set_time_limit(12000000);
-
-        $Empleados2011 = Empleados::all();
-
-        foreach ($Empleados2011 as $empleado2011) {
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->first();
-
-            if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($empleado2011->empresa == "") {
-                continue;
-            }
-
-            $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
-
-            if ($fichadatosgenerales) {
-                $positionType = $fichadatosgenerales->tipodecargo;
-            } else {
-                continue;
-            }
-
-
-            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
-
-            if (!$companyName) {
-                $companyName = Company::create([
-                    "company_name" => $empleado2011->empresa,
-                    "company_nit" => $empleado2011->nit,
-                    "contact" => "",
-                    "position_contact" => "",
-                    "contact_email" => "",
-                    "address" => "",
-                    "phone" => "",
-                    "cell_phone" => "",
-                    "policy" => "",
-                    "city_id" => 160,
-                    "arl_type_id" => 15,
-                    "client_type_id" => 17,
-                    "reinsurer_type_id" => 3,
-                ]);
-            }
-
-            $measurementName = "MEDICIÓN $companyName->company_name";
-
-            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
-                ->where('measurement_year', '=', $year)
-                ->first();
-
-            $measurementId = "";
-            if (!$ifExistsMeasurement) {
-                $measurement = Measurements::create([
-                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
-                    'measurement_year' => $year,
-                    'state' => 0,
-                    'start_date' => "$year-01-01 07:30:00",
-                    'end_date' => "$year-12-31 12:35:00"
-                ]);
-
-                MeasurementCompanies::create([
-                    'measurement_id' => $measurement->measurement_id,
-                    'company_id' => $companyName->company_id,
-                ]);
-
-                CompanyPlatform::create([
-                    'platform_id' => 2,
-                    'company_id' => $companyName->company_id
-                ]);
-
-                $measurementId = $measurement->measurement_id;
-            } else {
-                $measurementId = $ifExistsMeasurement->measurement_id;
-            }
-
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->where('measurement_id', '=', $measurementId)
-                ->first();
-
-            if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($year != "2018") {
-                continue;
-            }
-
-            $Employees = Employees::create([
-                'company_id' => $companyName->company_id,
-                'measurement_id' => $measurementId,
-                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
-                'document_employee' => $empleado2011->cc,
-                'first_name' => mb_strtoupper($empleado2011->nombres),
-                'last_name' => mb_strtoupper($empleado2011->apellidos),
-                'position' => mb_strtoupper($empleado2011->cargo),
-                'position_type' => $positionType,
-                'email' => $empleado2011->email,
-                'username' => "CERRADO-$year",
-                'password' => "CERRADO-$year",
-                'first_level' => mb_strtoupper($empleado2011->oficina),
-                'second_level' => mb_strtoupper($empleado2011->sede),
-                'third_level' => mb_strtoupper($empleado2011->ciclos),
-                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
-                'fifth_level' => mb_strtoupper($empleado2011->proceso),
-                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
-                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
-                'state' => 0
-            ]);
-
-            $intralaboralState = "";
-            if ($empleado2011->notas == 'A') {
-                $intralaboralState = $empleado2011->pruebaintralaboralA;
-            } else {
-                $intralaboralState = $empleado2011->pruebaintralaboralB;
-            }
-
-            $Questionnaires = Questionnaires::create([
-                'measurement_id' => $measurementId,
-                'employee_id' => $Employees->employee_id,
-                'type_questionarie' => $empleado2011->notas,
-                'state_crafft' => "",
-                'state_weather' => $empleado2011->pruebaclima,
-                'state_copping' => "",
-                'state_intrawork' => $intralaboralState,
-                'state_extrawork' => $empleado2011->pruebaextralaboral,
-                'state_general_data' => $empleado2011->pruebadatos,
-                'state_stress' => $empleado2011->pruebaestres
-            ]);
-        }
-    }
-
-    public function migrateEmployees2019()
-    {
-        set_time_limit(12000000);
-
-        $Empleados2011 = Empleados::all();
-
-        foreach ($Empleados2011 as $empleado2011) {
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->first();
-
-            if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($empleado2011->empresa == "") {
-                continue;
-            }
-
-            $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
-
-            if ($fichadatosgenerales) {
-                $positionType = $fichadatosgenerales->tipodecargo;
-            } else {
-                continue;
-            }
-
-
-            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
-
-            if (!$companyName) {
-                $companyName = Company::create([
-                    "company_name" => $empleado2011->empresa,
-                    "company_nit" => $empleado2011->nit,
-                    "contact" => "",
-                    "position_contact" => "",
-                    "contact_email" => "",
-                    "address" => "",
-                    "phone" => "",
-                    "cell_phone" => "",
-                    "policy" => "",
-                    "city_id" => 160,
-                    "arl_type_id" => 15,
-                    "client_type_id" => 17,
-                    "reinsurer_type_id" => 3,
-                ]);
-            }
-
-            $measurementName = "MEDICIÓN $companyName->company_name";
-
-            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
-                ->where('measurement_year', '=', $year)
-                ->first();
-
-            $measurementId = "";
-            if (!$ifExistsMeasurement) {
-                $measurement = Measurements::create([
-                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
-                    'measurement_year' => $year,
-                    'state' => 0,
-                    'start_date' => "$year-01-01 07:30:00",
-                    'end_date' => "$year-12-31 12:35:00"
-                ]);
-
-                MeasurementCompanies::create([
-                    'measurement_id' => $measurement->measurement_id,
-                    'company_id' => $companyName->company_id,
-                ]);
-
-                CompanyPlatform::create([
-                    'platform_id' => 2,
-                    'company_id' => $companyName->company_id
-                ]);
-
-                $measurementId = $measurement->measurement_id;
-            } else {
-                $measurementId = $ifExistsMeasurement->measurement_id;
-            }
-
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->where('measurement_id', '=', $measurementId)
-                ->first();
-
-            if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($year != "2019") {
-                continue;
-            }
-
-            $Employees = Employees::create([
-                'company_id' => $companyName->company_id,
-                'measurement_id' => $measurementId,
-                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
-                'document_employee' => $empleado2011->cc,
-                'first_name' => mb_strtoupper($empleado2011->nombres),
-                'last_name' => mb_strtoupper($empleado2011->apellidos),
-                'position' => mb_strtoupper($empleado2011->cargo),
-                'position_type' => $positionType,
-                'email' => $empleado2011->email,
-                'username' => "CERRADO-$year",
-                'password' => "CERRADO-$year",
-                'first_level' => mb_strtoupper($empleado2011->oficina),
-                'second_level' => mb_strtoupper($empleado2011->sede),
-                'third_level' => mb_strtoupper($empleado2011->ciclos),
-                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
-                'fifth_level' => mb_strtoupper($empleado2011->proceso),
-                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
-                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
-                'state' => 0
-            ]);
-
-            $intralaboralState = "";
-            if ($empleado2011->notas == 'A') {
-                $intralaboralState = $empleado2011->pruebaintralaboralA;
-            } else {
-                $intralaboralState = $empleado2011->pruebaintralaboralB;
-            }
-
-            $Questionnaires = Questionnaires::create([
-                'measurement_id' => $measurementId,
-                'employee_id' => $Employees->employee_id,
-                'type_questionarie' => $empleado2011->notas,
-                'state_crafft' => "",
-                'state_weather' => $empleado2011->pruebaclima,
-                'state_copping' => "",
-                'state_intrawork' => $intralaboralState,
-                'state_extrawork' => $empleado2011->pruebaextralaboral,
-                'state_general_data' => $empleado2011->pruebadatos,
-                'state_stress' => $empleado2011->pruebaestres
-            ]);
-        }
-    }
-
-    public function migrateEmployees2020()
-    {
-        set_time_limit(12000000);
-
-        $Empleados2011 = Empleados::all();
-
-        foreach ($Empleados2011 as $empleado2011) {
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->first();
-
-            if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($empleado2011->empresa == "") {
-                continue;
-            }
-
-            $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
-
-            if ($fichadatosgenerales) {
-                $positionType = $fichadatosgenerales->tipodecargo;
-            } else {
-                continue;
-            }
-
-
-            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
-
-            if (!$companyName) {
-                $companyName = Company::create([
-                    "company_name" => $empleado2011->empresa,
-                    "company_nit" => $empleado2011->nit,
-                    "contact" => "",
-                    "position_contact" => "",
-                    "contact_email" => "",
-                    "address" => "",
-                    "phone" => "",
-                    "cell_phone" => "",
-                    "policy" => "",
-                    "city_id" => 160,
-                    "arl_type_id" => 15,
-                    "client_type_id" => 17,
-                    "reinsurer_type_id" => 3,
-                ]);
-            }
-
-            $measurementName = "MEDICIÓN $companyName->company_name";
-
-            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
-                ->where('measurement_year', '=', $year)
-                ->first();
-
-            $measurementId = "";
-            if (!$ifExistsMeasurement) {
-                $measurement = Measurements::create([
-                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
-                    'measurement_year' => $year,
-                    'state' => 0,
-                    'start_date' => "$year-01-01 07:30:00",
-                    'end_date' => "$year-12-31 12:35:00"
-                ]);
-
-                MeasurementCompanies::create([
-                    'measurement_id' => $measurement->measurement_id,
-                    'company_id' => $companyName->company_id,
-                ]);
-
-                CompanyPlatform::create([
-                    'platform_id' => 2,
-                    'company_id' => $companyName->company_id
-                ]);
-
-                $measurementId = $measurement->measurement_id;
-            } else {
-                $measurementId = $ifExistsMeasurement->measurement_id;
-            }
-
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->where('measurement_id', '=', $measurementId)
-                ->first();
-
-            if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($year != "2020") {
-                continue;
-            }
-
-            $Employees = Employees::create([
-                'company_id' => $companyName->company_id,
-                'measurement_id' => $measurementId,
-                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
-                'document_employee' => $empleado2011->cc,
-                'first_name' => mb_strtoupper($empleado2011->nombres),
-                'last_name' => mb_strtoupper($empleado2011->apellidos),
-                'position' => mb_strtoupper($empleado2011->cargo),
-                'position_type' => $positionType,
-                'email' => $empleado2011->email,
-                'username' => "CERRADO-$year",
-                'password' => "CERRADO-$year",
-                'first_level' => mb_strtoupper($empleado2011->oficina),
-                'second_level' => mb_strtoupper($empleado2011->sede),
-                'third_level' => mb_strtoupper($empleado2011->ciclos),
-                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
-                'fifth_level' => mb_strtoupper($empleado2011->proceso),
-                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
-                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
-                'state' => 0
-            ]);
-
-            $intralaboralState = "";
-            if ($empleado2011->notas == 'A') {
-                $intralaboralState = $empleado2011->pruebaintralaboralA;
-            } else {
-                $intralaboralState = $empleado2011->pruebaintralaboralB;
-            }
-
-            $Questionnaires = Questionnaires::create([
-                'measurement_id' => $measurementId,
-                'employee_id' => $Employees->employee_id,
-                'type_questionarie' => $empleado2011->notas,
-                'state_crafft' => "",
-                'state_weather' => $empleado2011->pruebaclima,
-                'state_copping' => "",
-                'state_intrawork' => $intralaboralState,
-                'state_extrawork' => $empleado2011->pruebaextralaboral,
-                'state_general_data' => $empleado2011->pruebadatos,
-                'state_stress' => $empleado2011->pruebaestres
-            ]);
-        }
-    }
-
-    public function migrateEmployees2021()
-    {
-        set_time_limit(12000000);
-
-        $Empleados2011 = Empleados::all();
-
-        foreach ($Empleados2011 as $empleado2011) {
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->first();
-
-            if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($empleado2011->empresa == "") {
-                continue;
-            }
-
-            $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
-
-            if ($fichadatosgenerales) {
-                $positionType = $fichadatosgenerales->tipodecargo;
-            } else {
-                continue;
-            }
-
-
-            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
-
-            if (!$companyName) {
-                $companyName = Company::create([
-                    "company_name" => $empleado2011->empresa,
-                    "company_nit" => $empleado2011->nit,
-                    "contact" => "",
-                    "position_contact" => "",
-                    "contact_email" => "",
-                    "address" => "",
-                    "phone" => "",
-                    "cell_phone" => "",
-                    "policy" => "",
-                    "city_id" => 160,
-                    "arl_type_id" => 15,
-                    "client_type_id" => 17,
-                    "reinsurer_type_id" => 3,
-                ]);
-            }
-
-            $measurementName = "MEDICIÓN $companyName->company_name";
-
-            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
-                ->where('measurement_year', '=', $year)
-                ->first();
-
-            $measurementId = "";
-            if (!$ifExistsMeasurement) {
-                $measurement = Measurements::create([
-                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
-                    'measurement_year' => $year,
-                    'state' => 0,
-                    'start_date' => "$year-01-01 07:30:00",
-                    'end_date' => "$year-12-31 12:35:00"
-                ]);
-
-                MeasurementCompanies::create([
-                    'measurement_id' => $measurement->measurement_id,
-                    'company_id' => $companyName->company_id,
-                ]);
-
-                CompanyPlatform::create([
-                    'platform_id' => 2,
-                    'company_id' => $companyName->company_id
-                ]);
-
-                $measurementId = $measurement->measurement_id;
-            } else {
-                $measurementId = $ifExistsMeasurement->measurement_id;
-            }
-
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->where('measurement_id', '=', $measurementId)
-                ->first();
-
-            if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($year != "2021") {
-                continue;
-            }
-
-            $Employees = Employees::create([
-                'company_id' => $companyName->company_id,
-                'measurement_id' => $measurementId,
-                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
-                'document_employee' => $empleado2011->cc,
-                'first_name' => mb_strtoupper($empleado2011->nombres),
-                'last_name' => mb_strtoupper($empleado2011->apellidos),
-                'position' => mb_strtoupper($empleado2011->cargo),
-                'position_type' => $positionType,
-                'email' => $empleado2011->email,
-                'username' => "CERRADO-$year",
-                'password' => "CERRADO-$year",
-                'first_level' => mb_strtoupper($empleado2011->oficina),
-                'second_level' => mb_strtoupper($empleado2011->sede),
-                'third_level' => mb_strtoupper($empleado2011->ciclos),
-                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
-                'fifth_level' => mb_strtoupper($empleado2011->proceso),
-                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
-                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
-                'state' => 0
-            ]);
-
-            $intralaboralState = "";
-            if ($empleado2011->notas == 'A') {
-                $intralaboralState = $empleado2011->pruebaintralaboralA;
-            } else {
-                $intralaboralState = $empleado2011->pruebaintralaboralB;
-            }
-
-            $Questionnaires = Questionnaires::create([
-                'measurement_id' => $measurementId,
-                'employee_id' => $Employees->employee_id,
-                'type_questionarie' => $empleado2011->notas,
-                'state_crafft' => "",
-                'state_weather' => $empleado2011->pruebaclima,
-                'state_copping' => "",
-                'state_intrawork' => $intralaboralState,
-                'state_extrawork' => $empleado2011->pruebaextralaboral,
-                'state_general_data' => $empleado2011->pruebadatos,
-                'state_stress' => $empleado2011->pruebaestres
-            ]);
-        }
-    }
-
-    public function migrateEmployees2024()
-    {
-        set_time_limit(12000000);
-
-        $Empleados2011 = Empleados2024::all();
-
-        foreach ($Empleados2011 as $empleado2011) {
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->first();
-
-            if ($isEmployeeExists) {
-                continue;
-            }
-
-            if ($empleado2011->empresa == "") {
-                continue;
-            }
-
-            $positionType = "Profesional, analista, técnico, tecnólogo";
-            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
-
-            if ($fichadatosgenerales && $empleado2011->ciclos2 == '-') {
-                $positionType = $fichadatosgenerales->tipodecargo;
-            } else {
-                continue;
-            }
-
-            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
-
-            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
-
-            if (!$companyName) {
-                $companyName = Company::create([
-                    "company_name" => $empleado2011->empresa,
-                    "company_nit" => $empleado2011->nit,
-                    "contact" => "",
-                    "position_contact" => "",
-                    "contact_email" => "",
-                    "address" => "",
-                    "phone" => "",
-                    "cell_phone" => "",
-                    "policy" => "",
-                    "city_id" => 160,
-                    "arl_type_id" => 15,
-                    "client_type_id" => 17,
-                    "reinsurer_type_id" => 3,
-                ]);
-            }
-
-            $measurementName = "MEDICIÓN $companyName->company_name";
-
-            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
-                ->where('measurement_year', '=', $year)
-                ->first();
-
-            $measurementId = "";
-            if (!$ifExistsMeasurement) {
-                $measurement = Measurements::create([
-                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
-                    'measurement_year' => $year,
-                    'state' => 0,
-                    'start_date' => "$year-01-01 07:30:00",
-                    'end_date' => "$year-12-31 12:35:00"
-                ]);
-
-                MeasurementCompanies::create([
-                    'measurement_id' => $measurement->measurement_id,
-                    'company_id' => $companyName->company_id,
-                ]);
-
-                CompanyPlatform::create([
-                    'platform_id' => 2,
-                    'company_id' => $companyName->company_id
-                ]);
-
-                $measurementId = $measurement->measurement_id;
-            } else {
-                $measurementId = $ifExistsMeasurement->measurement_id;
-            }
-
-            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
-                ->where('measurement_id', '=', $measurementId)
-                ->first();
-
-            if ($isEmployeeExists) {
-                continue;
-            }
-
-            $Employees = Employees::create([
-                'company_id' => $companyName->company_id,
-                'measurement_id' => $measurementId,
-                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
-                'document_employee' => $empleado2011->cc,
-                'first_name' => mb_strtoupper($empleado2011->nombres),
-                'last_name' => mb_strtoupper($empleado2011->apellidos),
-                'position' => mb_strtoupper($empleado2011->cargo),
-                'position_type' => $positionType,
-                'email' => $empleado2011->email,
-                'username' => "CERRADO-$year",
-                'password' => "CERRADO-$year",
-                'first_level' => mb_strtoupper($empleado2011->oficina),
-                'second_level' => mb_strtoupper($empleado2011->sede),
-                'third_level' => mb_strtoupper($empleado2011->ciclos),
-                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
-                'fifth_level' => mb_strtoupper($empleado2011->proceso),
-                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
-                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
-                'eighth_level' => "",
-                'state' => 0
-            ]);
-
-            $intralaboralState = "";
-            if ($empleado2011->notas == 'A') {
-                $intralaboralState = $empleado2011->pruebaintralaboralA;
-            } else {
-                $intralaboralState = $empleado2011->pruebaintralaboralB;
-            }
-
-            $Questionnaires = Questionnaires::create([
-                'measurement_id' => $measurementId,
-                'employee_id' => $Employees->employee_id,
-                'type_questionarie' => $empleado2011->notas,
-                'state_crafft' => "",
-                'state_weather' => $empleado2011->pruebaclima,
-                'state_copping' => "",
-                'state_intrawork' => $intralaboralState,
-                'state_extrawork' => $empleado2011->pruebaextralaboral,
-                'state_general_data' => $empleado2011->pruebadatos,
-                'state_stress' => $empleado2011->pruebaestres
-            ]);
-        }
-    }
-
-    public function migrateQuestionnaireA()
-    {
-        set_time_limit(12000000);
-
-        $Caliriesgo1 = caliriesgopsicosocialparte1::all();
-
-        foreach ($Caliriesgo1 as $answerOld) {
-            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
-                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
-                ->first();
-
-            if (!$Employees) {
-                continue;
-            }
-
-            $fechaOriginal = $answerOld->fechaaplicacion;
-            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
-                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
-            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
-                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
-            } else {
-                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
-            }
-
-            $data = [
-                "questionnaire_id" => $Employees->questionnaire_id,
-                "response_date" => $fechaFormateada,
-                "answer_1" => $answerOld->r1,
-                "answer_2" => $answerOld->r2,
-                "answer_3" => $answerOld->r3,
-                "answer_4" => $answerOld->r4,
-                "answer_5" => $answerOld->r5,
-                "answer_6" => $answerOld->r6,
-                "answer_7" => $answerOld->r7,
-                "answer_8" => $answerOld->r8,
-                "answer_9" => $answerOld->r9,
-                "answer_10" => $answerOld->r10,
-                "answer_11" => $answerOld->r11,
-                "answer_12" => $answerOld->r12,
-                "answer_13" => $answerOld->r13,
-                "answer_14" => $answerOld->r14,
-                "answer_15" => $answerOld->r15,
-                "answer_16" => $answerOld->r16,
-                "answer_17" => $answerOld->r17,
-                "answer_18" => $answerOld->r18,
-                "answer_19" => $answerOld->r19,
-                "answer_20" => $answerOld->r20,
-                "answer_21" => $answerOld->r21,
-                "answer_22" => $answerOld->r22,
-                "answer_23" => $answerOld->r23,
-                "answer_24" => $answerOld->r24,
-                "answer_25" => $answerOld->r25,
-                "answer_26" => $answerOld->r26,
-                "answer_27" => $answerOld->r27,
-                "answer_28" => $answerOld->r28,
-                "answer_29" => $answerOld->r29,
-                "answer_30" => $answerOld->r30,
-                "answer_31" => $answerOld->r31,
-                "answer_32" => $answerOld->r32,
-                "answer_33" => $answerOld->r33,
-                "answer_34" => $answerOld->r34,
-                "answer_35" => $answerOld->r35,
-                "answer_36" => $answerOld->r36,
-                "answer_37" => $answerOld->r37,
-                "answer_38" => $answerOld->r38,
-                "answer_39" => $answerOld->r39,
-                "answer_40" => $answerOld->r40,
-                "answer_41" => $answerOld->r41,
-                "answer_42" => $answerOld->r42,
-                "answer_43" => $answerOld->r43,
-                "answer_44" => $answerOld->r44,
-                "answer_45" => $answerOld->r45,
-                "answer_46" => $answerOld->r46,
-                "answer_47" => $answerOld->r47,
-                "answer_48" => $answerOld->r48,
-                "answer_49" => $answerOld->r49,
-                "answer_50" => $answerOld->r50,
-                "answer_51" => $answerOld->r51,
-                "answer_52" => $answerOld->r52,
-                "answer_53" => $answerOld->r53,
-                "answer_54" => $answerOld->r54,
-                "answer_55" => $answerOld->r55,
-                "answer_56" => $answerOld->r56,
-                "answer_57" => $answerOld->r57,
-                "answer_58" => $answerOld->r58,
-                "answer_59" => $answerOld->r59,
-                "answer_60" => $answerOld->r60,
-                "answer_61" => $answerOld->r61,
-                "answer_62" => $answerOld->r62,
-                "answer_63" => $answerOld->r63,
-                "answer_64" => $answerOld->r64,
-                "answer_65" => $answerOld->r65,
-                "answer_66" => $answerOld->r66,
-                "answer_67" => $answerOld->r67,
-                "answer_68" => $answerOld->r68,
-                "answer_69" => $answerOld->r69,
-                "answer_70" => $answerOld->r70,
-                "answer_71" => $answerOld->r71,
-                "answer_72" => $answerOld->r72,
-                "answer_73" => $answerOld->r73,
-                "answer_74" => $answerOld->r74,
-                "answer_75" => $answerOld->r75,
-                "answer_76" => $answerOld->r76,
-                "answer_77" => $answerOld->r77,
-                "answer_78" => $answerOld->r78,
-                "answer_79" => $answerOld->r79,
-                "answer_80" => $answerOld->r80,
-                "answer_81" => $answerOld->r81,
-                "answer_82" => $answerOld->r82,
-                "answer_83" => $answerOld->r83,
-                "answer_84" => $answerOld->r84,
-                "answer_85" => $answerOld->r85,
-                "answer_86" => $answerOld->r86,
-                "answer_87" => $answerOld->r87,
-                "answer_88" => $answerOld->r88,
-                "answer_89" => $answerOld->r89,
-                "answer_90" => $answerOld->r90,
-                "answer_91" => $answerOld->r91,
-                "answer_92" => $answerOld->r92,
-                "answer_93" => $answerOld->r93,
-                "answer_94" => $answerOld->r94,
-                "answer_95" => $answerOld->r95,
-                "answer_96" => $answerOld->r96,
-                "answer_97" => $answerOld->r97,
-                "answer_98" => $answerOld->r98,
-                "answer_99" => $answerOld->r99,
-                "answer_100" => $answerOld->r100,
-                "answer_101" => $answerOld->r101,
-                "answer_102" => $answerOld->r102,
-                "answer_103" => $answerOld->r103,
-                "answer_104" => $answerOld->r104,
-                "answer_105" => $answerOld->r105,
-                "answer_106" => $answerOld->r106,
-                "answer_107" => $answerOld->r107,
-                "answer_108" => $answerOld->r108,
-                "answer_109" => $answerOld->r109,
-                "answer_110" => $answerOld->r110,
-                "answer_111" => $answerOld->r111,
-                "answer_112" => $answerOld->r112,
-                "answer_113" => $answerOld->r113,
-                "answer_114" => $answerOld->r114,
-                "answer_115" => $answerOld->r115,
-                "answer_116" => $answerOld->r116,
-                "answer_117" => $answerOld->r117,
-                "answer_118" => $answerOld->r118,
-                "answer_119" => $answerOld->r119,
-                "answer_120" => $answerOld->r120,
-                "answer_121" => $answerOld->r121,
-                "answer_122" => $answerOld->r122,
-                "answer_123" => $answerOld->r123,
-            ];
-
-
-            $dataIntrawork = new Request();
-            $dataIntrawork->replace($data);
-
-            $this->registerIntraWorkAUser($dataIntrawork);
         }
     }
 
@@ -2327,140 +1224,6 @@ class MigrationController extends Controller
         }
     }
 
-    public function migrateQuestionnaireB()
-    {
-        set_time_limit(12000000);
-
-        $Caliriesgo = caliriesgopsicosocialparte2::all();
-
-        foreach ($Caliriesgo as $answerOld) {
-            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
-                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
-                ->first();
-
-            if (!$Employees) {
-                continue;
-            }
-
-            $fechaOriginal = $answerOld->fechaaplicacion;
-            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
-                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
-            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
-                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
-            } else {
-                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
-            }
-
-            $data = [
-                "questionnaire_id" => $Employees->questionnaire_id,
-                "response_date" => $fechaFormateada,
-                "answer_1" => $answerOld->r1,
-                "answer_2" => $answerOld->r2,
-                "answer_3" => $answerOld->r3,
-                "answer_4" => $answerOld->r4,
-                "answer_5" => $answerOld->r5,
-                "answer_6" => $answerOld->r6,
-                "answer_7" => $answerOld->r7,
-                "answer_8" => $answerOld->r8,
-                "answer_9" => $answerOld->r9,
-                "answer_10" => $answerOld->r10,
-                "answer_11" => $answerOld->r11,
-                "answer_12" => $answerOld->r12,
-                "answer_13" => $answerOld->r13,
-                "answer_14" => $answerOld->r14,
-                "answer_15" => $answerOld->r15,
-                "answer_16" => $answerOld->r16,
-                "answer_17" => $answerOld->r17,
-                "answer_18" => $answerOld->r18,
-                "answer_19" => $answerOld->r19,
-                "answer_20" => $answerOld->r20,
-                "answer_21" => $answerOld->r21,
-                "answer_22" => $answerOld->r22,
-                "answer_23" => $answerOld->r23,
-                "answer_24" => $answerOld->r24,
-                "answer_25" => $answerOld->r25,
-                "answer_26" => $answerOld->r26,
-                "answer_27" => $answerOld->r27,
-                "answer_28" => $answerOld->r28,
-                "answer_29" => $answerOld->r29,
-                "answer_30" => $answerOld->r30,
-                "answer_31" => $answerOld->r31,
-                "answer_32" => $answerOld->r32,
-                "answer_33" => $answerOld->r33,
-                "answer_34" => $answerOld->r34,
-                "answer_35" => $answerOld->r35,
-                "answer_36" => $answerOld->r36,
-                "answer_37" => $answerOld->r37,
-                "answer_38" => $answerOld->r38,
-                "answer_39" => $answerOld->r39,
-                "answer_40" => $answerOld->r40,
-                "answer_41" => $answerOld->r41,
-                "answer_42" => $answerOld->r42,
-                "answer_43" => $answerOld->r43,
-                "answer_44" => $answerOld->r44,
-                "answer_45" => $answerOld->r45,
-                "answer_46" => $answerOld->r46,
-                "answer_47" => $answerOld->r47,
-                "answer_48" => $answerOld->r48,
-                "answer_49" => $answerOld->r49,
-                "answer_50" => $answerOld->r50,
-                "answer_51" => $answerOld->r51,
-                "answer_52" => $answerOld->r52,
-                "answer_53" => $answerOld->r53,
-                "answer_54" => $answerOld->r54,
-                "answer_55" => $answerOld->r55,
-                "answer_56" => $answerOld->r56,
-                "answer_57" => $answerOld->r57,
-                "answer_58" => $answerOld->r58,
-                "answer_59" => $answerOld->r59,
-                "answer_60" => $answerOld->r60,
-                "answer_61" => $answerOld->r61,
-                "answer_62" => $answerOld->r62,
-                "answer_63" => $answerOld->r63,
-                "answer_64" => $answerOld->r64,
-                "answer_65" => $answerOld->r65,
-                "answer_66" => $answerOld->r66,
-                "answer_67" => $answerOld->r67,
-                "answer_68" => $answerOld->r68,
-                "answer_69" => $answerOld->r69,
-                "answer_70" => $answerOld->r70,
-                "answer_71" => $answerOld->r71,
-                "answer_72" => $answerOld->r72,
-                "answer_73" => $answerOld->r73,
-                "answer_74" => $answerOld->r74,
-                "answer_75" => $answerOld->r75,
-                "answer_76" => $answerOld->r76,
-                "answer_77" => $answerOld->r77,
-                "answer_78" => $answerOld->r78,
-                "answer_79" => $answerOld->r79,
-                "answer_80" => $answerOld->r80,
-                "answer_81" => $answerOld->r81,
-                "answer_82" => $answerOld->r82,
-                "answer_83" => $answerOld->r83,
-                "answer_84" => $answerOld->r84,
-                "answer_85" => $answerOld->r85,
-                "answer_86" => $answerOld->r86,
-                "answer_87" => $answerOld->r87,
-                "answer_88" => $answerOld->r88,
-                "answer_89" => $answerOld->r89,
-                "answer_90" => $answerOld->r90,
-                "answer_91" => $answerOld->r91,
-                "answer_92" => $answerOld->r92,
-                "answer_93" => $answerOld->r93,
-                "answer_94" => $answerOld->r94,
-                "answer_95" => $answerOld->r95,
-                "answer_96" => $answerOld->r96,
-                "answer_97" => $answerOld->r97
-            ];
-
-
-            $dataIntrawork = new Request();
-            $dataIntrawork->replace($data);
-
-            $this->registerIntraWorkBUser($dataIntrawork);
-        }
-    }
-
     public function registerIntraWorkBUser(Request $request)
     {
         $QuestionnaireExits = Questionnaires::where('questionnaire_id', $request->questionnaire_id)->first();
@@ -3496,60 +2259,6 @@ class MigrationController extends Controller
         }
     }
 
-    public function migrateQuestionnaireGeneralData()
-    {
-        set_time_limit(12000000);
-
-        $Caliriesgo = fichadatosgenerales::all();
-
-        foreach ($Caliriesgo as $answerOld) {
-            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
-                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
-                ->first();
-
-            if (!$Employees) {
-                continue;
-            }
-
-            $fechaOriginal = $answerOld->fechaaplicacion;
-            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
-                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
-            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
-                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
-            } else {
-                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
-            }
-
-            $data = [
-                "questionnaire_id" => $Employees->questionnaire_id,
-                "response_date" => $fechaFormateada,
-                "gender" => $answerOld->sexo,
-                "birth_date" => $answerOld->anodenacimiento,
-                "civil_status" => $answerOld->estadocivil,
-                "level_study" => $answerOld->niveldeestudio,
-                "occupation" => $answerOld->ocupacion,
-                "municipality" => $answerOld->muniresidencia,
-                "stratum" => $answerOld->estrato,
-                "type_housing" => $answerOld->vivienda,
-                "dependents" => $answerOld->personasacargo,
-                "municipality_work" => $answerOld->munitrabajo,
-                "years_work" => $answerOld->anostrabajo2,
-                "position" => $answerOld->cargo,
-                "position_type" => $answerOld->tipodecargo,
-                "position_years" => $answerOld->añoscargo2,
-                "area" => $answerOld->area,
-                "type_contract" => $answerOld->contrato,
-                "hours_work" => $answerOld->añoscargo2,
-                "salary_type" => $answerOld->salario,
-            ];
-
-            $dataGeneral = new Request();
-            $dataGeneral->replace($data);
-
-            $this->createGeneralDataUser($dataGeneral);
-        }
-    }
-
     public function createGeneralDataUser(Request $request)
     {
         $Questionnaire = Questionnaires::where('questionnaire_id', $request->questionnaire_id)->first();
@@ -3647,7 +2356,7 @@ class MigrationController extends Controller
         }
 
         $yearsWork = $request->years_work;
-        if(!is_numeric($yearsWork)){
+        if (!is_numeric($yearsWork)) {
             $yearsWork = "";
         }
 
@@ -3708,7 +2417,7 @@ class MigrationController extends Controller
         }
 
         $dependents = null;
-        if(is_numeric($request->dependents)){
+        if (is_numeric($request->dependents)) {
             $dependents = $request->dependents;
         }
 
@@ -3759,73 +2468,6 @@ class MigrationController extends Controller
             return response()->json(['message' => "Se ha creado un cuestionario de ficha de datos generales correctamente"], 200);
         } else {
             return response()->json(['error' => "No hemos podido crear el cuestionario de ficha de datos generales, revisa tu petición", 'Questionnaire' => 'Ficha de datos generales'], 500);
-        }
-    }
-
-    public function migrateQuestionnaireExtrawork()
-    {
-        set_time_limit(12000000);
-
-        $Caliriesgo = caliextralaborales::all();
-
-        foreach ($Caliriesgo as $answerOld) {
-            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
-                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
-                ->first();
-
-            if (!$Employees) {
-                continue;
-            }
-
-            $fechaOriginal = $answerOld->fechaaplicacion;
-            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
-                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
-            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
-                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
-            } else {
-                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
-            }
-
-            $data = [
-                "questionnaire_id" => $Employees->questionnaire_id,
-                "response_date" => $fechaFormateada,
-                "answer_1" => $answerOld->r1,
-                "answer_2" => $answerOld->r2,
-                "answer_3" => $answerOld->r3,
-                "answer_4" => $answerOld->r4,
-                "answer_5" => $answerOld->r5,
-                "answer_6" => $answerOld->r6,
-                "answer_7" => $answerOld->r7,
-                "answer_8" => $answerOld->r8,
-                "answer_9" => $answerOld->r9,
-                "answer_10" => $answerOld->r10,
-                "answer_11" => $answerOld->r11,
-                "answer_12" => $answerOld->r12,
-                "answer_13" => $answerOld->r13,
-                "answer_14" => $answerOld->r14,
-                "answer_15" => $answerOld->r15,
-                "answer_16" => $answerOld->r16,
-                "answer_17" => $answerOld->r17,
-                "answer_18" => $answerOld->r18,
-                "answer_19" => $answerOld->r19,
-                "answer_20" => $answerOld->r20,
-                "answer_21" => $answerOld->r21,
-                "answer_22" => $answerOld->r22,
-                "answer_23" => $answerOld->r23,
-                "answer_24" => $answerOld->r24,
-                "answer_25" => $answerOld->r25,
-                "answer_26" => $answerOld->r26,
-                "answer_27" => $answerOld->r27,
-                "answer_28" => $answerOld->r28,
-                "answer_29" => $answerOld->r29,
-                "answer_30" => $answerOld->r30,
-                "answer_31" => $answerOld->r31
-            ];
-
-            $dataIntrawork = new Request();
-            $dataIntrawork->replace($data);
-
-            $this->registerExtrawork($dataIntrawork);
         }
     }
 
@@ -4510,73 +3152,6 @@ class MigrationController extends Controller
         }
     }
 
-    public function migrateQuestionnaireStress()
-    {
-        set_time_limit(12000000);
-
-        $Caliriesgo = caliestres_pontificia::all();
-
-        foreach ($Caliriesgo as $answerOld) {
-            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
-                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
-                ->first();
-
-            if (!$Employees) {
-                continue;
-            }
-
-            $fechaOriginal = $answerOld->fechaaplicacion;
-            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
-                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
-            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
-                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
-            } else {
-                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
-            }
-
-            $data = [
-                "questionnaire_id" => $Employees->questionnaire_id,
-                "response_date" => $fechaFormateada,
-                "answer_1" => $answerOld->r1,
-                "answer_2" => $answerOld->r2,
-                "answer_3" => $answerOld->r3,
-                "answer_4" => $answerOld->r4,
-                "answer_5" => $answerOld->r5,
-                "answer_6" => $answerOld->r6,
-                "answer_7" => $answerOld->r7,
-                "answer_8" => $answerOld->r8,
-                "answer_9" => $answerOld->r9,
-                "answer_10" => $answerOld->r10,
-                "answer_11" => $answerOld->r11,
-                "answer_12" => $answerOld->r12,
-                "answer_13" => $answerOld->r13,
-                "answer_14" => $answerOld->r14,
-                "answer_15" => $answerOld->r15,
-                "answer_16" => $answerOld->r16,
-                "answer_17" => $answerOld->r17,
-                "answer_18" => $answerOld->r18,
-                "answer_19" => $answerOld->r19,
-                "answer_20" => $answerOld->r20,
-                "answer_21" => $answerOld->r21,
-                "answer_22" => $answerOld->r22,
-                "answer_23" => $answerOld->r23,
-                "answer_24" => $answerOld->r24,
-                "answer_25" => $answerOld->r25,
-                "answer_26" => $answerOld->r26,
-                "answer_27" => $answerOld->r27,
-                "answer_28" => $answerOld->r28,
-                "answer_29" => $answerOld->r29,
-                "answer_30" => $answerOld->r30,
-                "answer_31" => $answerOld->r31
-            ];
-
-            $dataIntrawork = new Request();
-            $dataIntrawork->replace($data);
-
-            $this->registerStress($dataIntrawork);
-        }
-    }
-
     public function registerStress(Request $request)
     {
         $QuestionnaireExits = Questionnaires::where('questionnaire_id', $request->questionnaire_id)->first();
@@ -5041,6 +3616,646 @@ class MigrationController extends Controller
         }
     }
 
+    public function registerWeather(Request $request)
+    {
+        $QuestionnaireExits = Questionnaires::where('questionnaire_id', $request->questionnaire_id)->first();
+
+        if (!$QuestionnaireExits) {
+            return;
+        }
+
+        $weather = new Weather();
+        $weather->questionnaire_id = $request->questionnaire_id;
+        $weather->response_date = $request->response_date;
+
+        for ($i = 1; $i <= 44; $i++) {
+            $weather->{"answer_$i"} = $request->input("answer_$i");
+        }
+
+        $QuestionnaireExits->state_weather = 'Realizado';
+
+        if ($weather->save() && $QuestionnaireExits->save()) {
+            return response()->json(['message' => "El questionario de clima se ha guardado con éxito."], 200);
+        } else {
+            return response()->json(['error' => "No se ha podido guardar su registro por favor verifique los datos."], 500);
+        }
+    }
+
+    public function migrateEmployees()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+
+            if ($fichadatosgenerales) {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => "",
+                'sixth_level' => "",
+                'seventh_level' => "",
+                'eighth_level' => "",
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
+    public function migrateQuestionnaireA()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo1 = caliriesgopsicosocialparte1::all();
+
+        foreach ($Caliriesgo1 as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97,
+                "answer_98" => $answerOld->r98,
+                "answer_99" => $answerOld->r99,
+                "answer_100" => $answerOld->r100,
+                "answer_101" => $answerOld->r101,
+                "answer_102" => $answerOld->r102,
+                "answer_103" => $answerOld->r103,
+                "answer_104" => $answerOld->r104,
+                "answer_105" => $answerOld->r105,
+                "answer_106" => $answerOld->r106,
+                "answer_107" => $answerOld->r107,
+                "answer_108" => $answerOld->r108,
+                "answer_109" => $answerOld->r109,
+                "answer_110" => $answerOld->r110,
+                "answer_111" => $answerOld->r111,
+                "answer_112" => $answerOld->r112,
+                "answer_113" => $answerOld->r113,
+                "answer_114" => $answerOld->r114,
+                "answer_115" => $answerOld->r115,
+                "answer_116" => $answerOld->r116,
+                "answer_117" => $answerOld->r117,
+                "answer_118" => $answerOld->r118,
+                "answer_119" => $answerOld->r119,
+                "answer_120" => $answerOld->r120,
+                "answer_121" => $answerOld->r121,
+                "answer_122" => $answerOld->r122,
+                "answer_123" => $answerOld->r123,
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkAUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireB()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliriesgopsicosocialparte2::all();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkBUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireGeneralData()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = fichadatosgenerales::all();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "gender" => $answerOld->sexo,
+                "birth_date" => $answerOld->anodenacimiento,
+                "civil_status" => $answerOld->estadocivil,
+                "level_study" => $answerOld->niveldeestudio,
+                "occupation" => $answerOld->ocupacion,
+                "municipality" => $answerOld->muniresidencia,
+                "stratum" => $answerOld->estrato,
+                "type_housing" => $answerOld->vivienda,
+                "dependents" => $answerOld->personasacargo,
+                "municipality_work" => $answerOld->munitrabajo,
+                "years_work" => $answerOld->anostrabajo2,
+                "position" => $answerOld->cargo,
+                "position_type" => $answerOld->tipodecargo,
+                "position_years" => $answerOld->añoscargo2,
+                "area" => $answerOld->area,
+                "type_contract" => $answerOld->contrato,
+                "hours_work" => $answerOld->añoscargo2,
+                "salary_type" => $answerOld->salario,
+            ];
+
+            $dataGeneral = new Request();
+            $dataGeneral->replace($data);
+
+            $this->createGeneralDataUser($dataGeneral);
+        }
+    }
+
+    public function migrateQuestionnaireExtrawork()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliextralaborales::all();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerExtrawork($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireStress()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliestres_pontificia::all();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerStress($dataIntrawork);
+        }
+    }
+
     public function migrateQuestionnaireWeather()
     {
         $Caliriesgo = clima::all();
@@ -5121,28 +4336,4944 @@ class MigrationController extends Controller
         }
     }
 
-    public function registerWeather(Request $request)
+    public function migrateEmployees2017()
     {
-        $QuestionnaireExits = Questionnaires::where('questionnaire_id', $request->questionnaire_id)->first();
+        set_time_limit(12000000);
 
-        if (!$QuestionnaireExits) {
-            return;
+        $Empleados2011 = Empleados::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            if ($fichadatosgenerales) {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($year != "2017") {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => "",
+                'sixth_level' => "",
+                'seventh_level' => "",
+                'eighth_level' => "",
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
         }
+    }
 
-        $weather = new Weather();
-        $weather->questionnaire_id = $request->questionnaire_id;
-        $weather->response_date = $request->response_date;
+    public function migrateQuestionnaireA2017()
+    {
+        set_time_limit(12000000);
 
-        for ($i = 1; $i <= 44; $i++) {
-            $weather->{"answer_$i"} = $request->input("answer_$i");
+        $Caliriesgo1 = caliriesgopsicosocialparte1::where('fechaaplicacion', 'like', '%2017%')->get();
+
+        foreach ($Caliriesgo1 as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97,
+                "answer_98" => $answerOld->r98,
+                "answer_99" => $answerOld->r99,
+                "answer_100" => $answerOld->r100,
+                "answer_101" => $answerOld->r101,
+                "answer_102" => $answerOld->r102,
+                "answer_103" => $answerOld->r103,
+                "answer_104" => $answerOld->r104,
+                "answer_105" => $answerOld->r105,
+                "answer_106" => $answerOld->r106,
+                "answer_107" => $answerOld->r107,
+                "answer_108" => $answerOld->r108,
+                "answer_109" => $answerOld->r109,
+                "answer_110" => $answerOld->r110,
+                "answer_111" => $answerOld->r111,
+                "answer_112" => $answerOld->r112,
+                "answer_113" => $answerOld->r113,
+                "answer_114" => $answerOld->r114,
+                "answer_115" => $answerOld->r115,
+                "answer_116" => $answerOld->r116,
+                "answer_117" => $answerOld->r117,
+                "answer_118" => $answerOld->r118,
+                "answer_119" => $answerOld->r119,
+                "answer_120" => $answerOld->r120,
+                "answer_121" => $answerOld->r121,
+                "answer_122" => $answerOld->r122,
+                "answer_123" => $answerOld->r123,
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkAUser($dataIntrawork);
         }
+    }
 
-        $QuestionnaireExits->state_weather = 'Realizado';
+    public function migrateQuestionnaireB2017()
+    {
+        set_time_limit(12000000);
 
-        if ($weather->save() && $QuestionnaireExits->save()) {
-            return response()->json(['message' => "El questionario de clima se ha guardado con éxito."], 200);
-        } else {
-            return response()->json(['error' => "No se ha podido guardar su registro por favor verifique los datos."], 500);
+        $Caliriesgo = caliriesgopsicosocialparte2::where('fechaaplicacion', 'like', '%2017%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkBUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireGeneralData2017()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = fichadatosgenerales::where('fechaaplicacion', 'like', '%2017%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "gender" => $answerOld->sexo,
+                "birth_date" => $answerOld->anodenacimiento,
+                "civil_status" => $answerOld->estadocivil,
+                "level_study" => $answerOld->niveldeestudio,
+                "occupation" => $answerOld->ocupacion,
+                "municipality" => $answerOld->muniresidencia,
+                "stratum" => $answerOld->estrato,
+                "type_housing" => $answerOld->vivienda,
+                "dependents" => $answerOld->personasacargo,
+                "municipality_work" => $answerOld->munitrabajo,
+                "years_work" => $answerOld->anostrabajo2,
+                "position" => $answerOld->cargo,
+                "position_type" => $answerOld->tipodecargo,
+                "position_years" => $answerOld->añoscargo2,
+                "area" => $answerOld->area,
+                "type_contract" => $answerOld->contrato,
+                "hours_work" => $answerOld->añoscargo2,
+                "salary_type" => $answerOld->salario,
+            ];
+
+            $dataGeneral = new Request();
+            $dataGeneral->replace($data);
+
+            $this->createGeneralDataUser($dataGeneral);
+        }
+    }
+
+    public function migrateQuestionnaireExtrawork2017()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliextralaborales::where('fechaaplicacion', 'like', '%2017%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerExtrawork($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireStress2017()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliestres_pontificia::where('fechaaplicacion', 'like', '%2017%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerStress($dataIntrawork);
+        }
+    }
+
+    public function migrateEmployees2018()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            if ($fichadatosgenerales) {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($year != "2018") {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => mb_strtoupper($empleado2011->proceso),
+                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
+                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
+    public function migrateQuestionnaireA2018()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo1 = caliriesgopsicosocialparte1::where('fechaaplicacion', 'like', '%2018%')->get();
+
+        foreach ($Caliriesgo1 as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97,
+                "answer_98" => $answerOld->r98,
+                "answer_99" => $answerOld->r99,
+                "answer_100" => $answerOld->r100,
+                "answer_101" => $answerOld->r101,
+                "answer_102" => $answerOld->r102,
+                "answer_103" => $answerOld->r103,
+                "answer_104" => $answerOld->r104,
+                "answer_105" => $answerOld->r105,
+                "answer_106" => $answerOld->r106,
+                "answer_107" => $answerOld->r107,
+                "answer_108" => $answerOld->r108,
+                "answer_109" => $answerOld->r109,
+                "answer_110" => $answerOld->r110,
+                "answer_111" => $answerOld->r111,
+                "answer_112" => $answerOld->r112,
+                "answer_113" => $answerOld->r113,
+                "answer_114" => $answerOld->r114,
+                "answer_115" => $answerOld->r115,
+                "answer_116" => $answerOld->r116,
+                "answer_117" => $answerOld->r117,
+                "answer_118" => $answerOld->r118,
+                "answer_119" => $answerOld->r119,
+                "answer_120" => $answerOld->r120,
+                "answer_121" => $answerOld->r121,
+                "answer_122" => $answerOld->r122,
+                "answer_123" => $answerOld->r123,
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkAUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireB2018()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliriesgopsicosocialparte2::where('fechaaplicacion', 'like', '%2018%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkBUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireGeneralData2018()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = fichadatosgenerales::where('fechaaplicacion', 'like', '%2018%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "gender" => $answerOld->sexo,
+                "birth_date" => $answerOld->anodenacimiento,
+                "civil_status" => $answerOld->estadocivil,
+                "level_study" => $answerOld->niveldeestudio,
+                "occupation" => $answerOld->ocupacion,
+                "municipality" => $answerOld->muniresidencia,
+                "stratum" => $answerOld->estrato,
+                "type_housing" => $answerOld->vivienda,
+                "dependents" => $answerOld->personasacargo,
+                "municipality_work" => $answerOld->munitrabajo,
+                "years_work" => $answerOld->anostrabajo2,
+                "position" => $answerOld->cargo,
+                "position_type" => $answerOld->tipodecargo,
+                "position_years" => $answerOld->añoscargo2,
+                "area" => $answerOld->area,
+                "type_contract" => $answerOld->contrato,
+                "hours_work" => $answerOld->añoscargo2,
+                "salary_type" => $answerOld->salario,
+            ];
+
+            $dataGeneral = new Request();
+            $dataGeneral->replace($data);
+
+            $this->createGeneralDataUser($dataGeneral);
+        }
+    }
+
+    public function migrateQuestionnaireExtrawork2018()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliextralaborales::where('fechaaplicacion', 'like', '%2018%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerExtrawork($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireStress2018()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliestres_pontificia::where('fechaaplicacion', 'like', '%2018%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerStress($dataIntrawork);
+        }
+    }
+
+    public function migrateEmployees2019()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            if ($fichadatosgenerales) {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($year != "2019") {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => mb_strtoupper($empleado2011->proceso),
+                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
+                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
+    public function migrateQuestionnaireA2019()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo1 = caliriesgopsicosocialparte1::where('fechaaplicacion', 'like', '%2019%')->get();
+
+        foreach ($Caliriesgo1 as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97,
+                "answer_98" => $answerOld->r98,
+                "answer_99" => $answerOld->r99,
+                "answer_100" => $answerOld->r100,
+                "answer_101" => $answerOld->r101,
+                "answer_102" => $answerOld->r102,
+                "answer_103" => $answerOld->r103,
+                "answer_104" => $answerOld->r104,
+                "answer_105" => $answerOld->r105,
+                "answer_106" => $answerOld->r106,
+                "answer_107" => $answerOld->r107,
+                "answer_108" => $answerOld->r108,
+                "answer_109" => $answerOld->r109,
+                "answer_110" => $answerOld->r110,
+                "answer_111" => $answerOld->r111,
+                "answer_112" => $answerOld->r112,
+                "answer_113" => $answerOld->r113,
+                "answer_114" => $answerOld->r114,
+                "answer_115" => $answerOld->r115,
+                "answer_116" => $answerOld->r116,
+                "answer_117" => $answerOld->r117,
+                "answer_118" => $answerOld->r118,
+                "answer_119" => $answerOld->r119,
+                "answer_120" => $answerOld->r120,
+                "answer_121" => $answerOld->r121,
+                "answer_122" => $answerOld->r122,
+                "answer_123" => $answerOld->r123,
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkAUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireB2019()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliriesgopsicosocialparte2::where('fechaaplicacion', 'like', '%2019%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkBUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireGeneralData2019()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = fichadatosgenerales::where('fechaaplicacion', 'like', '%2019%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "gender" => $answerOld->sexo,
+                "birth_date" => $answerOld->anodenacimiento,
+                "civil_status" => $answerOld->estadocivil,
+                "level_study" => $answerOld->niveldeestudio,
+                "occupation" => $answerOld->ocupacion,
+                "municipality" => $answerOld->muniresidencia,
+                "stratum" => $answerOld->estrato,
+                "type_housing" => $answerOld->vivienda,
+                "dependents" => $answerOld->personasacargo,
+                "municipality_work" => $answerOld->munitrabajo,
+                "years_work" => $answerOld->anostrabajo2,
+                "position" => $answerOld->cargo,
+                "position_type" => $answerOld->tipodecargo,
+                "position_years" => $answerOld->añoscargo2,
+                "area" => $answerOld->area,
+                "type_contract" => $answerOld->contrato,
+                "hours_work" => $answerOld->añoscargo2,
+                "salary_type" => $answerOld->salario,
+            ];
+
+            $dataGeneral = new Request();
+            $dataGeneral->replace($data);
+
+            $this->createGeneralDataUser($dataGeneral);
+        }
+    }
+
+    public function migrateQuestionnaireExtrawork2019()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliextralaborales::where('fechaaplicacion', 'like', '%2019%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerExtrawork($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireStress2019()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliestres_pontificia::where('fechaaplicacion', 'like', '%2019%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerStress($dataIntrawork);
+        }
+    }
+
+    public function migrateEmployees2020()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            if ($fichadatosgenerales) {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($year != "2020") {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => mb_strtoupper($empleado2011->proceso),
+                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
+                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
+    public function migrateQuestionnaireA2020()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo1 = caliriesgopsicosocialparte1::where('fechaaplicacion', 'like', '%2020%')
+            ->where('fechaaplicacion', 'like', '%2019%')->get();
+
+        foreach ($Caliriesgo1 as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97,
+                "answer_98" => $answerOld->r98,
+                "answer_99" => $answerOld->r99,
+                "answer_100" => $answerOld->r100,
+                "answer_101" => $answerOld->r101,
+                "answer_102" => $answerOld->r102,
+                "answer_103" => $answerOld->r103,
+                "answer_104" => $answerOld->r104,
+                "answer_105" => $answerOld->r105,
+                "answer_106" => $answerOld->r106,
+                "answer_107" => $answerOld->r107,
+                "answer_108" => $answerOld->r108,
+                "answer_109" => $answerOld->r109,
+                "answer_110" => $answerOld->r110,
+                "answer_111" => $answerOld->r111,
+                "answer_112" => $answerOld->r112,
+                "answer_113" => $answerOld->r113,
+                "answer_114" => $answerOld->r114,
+                "answer_115" => $answerOld->r115,
+                "answer_116" => $answerOld->r116,
+                "answer_117" => $answerOld->r117,
+                "answer_118" => $answerOld->r118,
+                "answer_119" => $answerOld->r119,
+                "answer_120" => $answerOld->r120,
+                "answer_121" => $answerOld->r121,
+                "answer_122" => $answerOld->r122,
+                "answer_123" => $answerOld->r123,
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkAUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireB2020()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliriesgopsicosocialparte2::where('fechaaplicacion', 'like', '%2020%')
+            ->where('fechaaplicacion', 'like', '%2019%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkBUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireGeneralData2020()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = fichadatosgenerales::where('fechaaplicacion', 'like', '%2020%')
+            ->where('fechaaplicacion', 'like', '%2019%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "gender" => $answerOld->sexo,
+                "birth_date" => $answerOld->anodenacimiento,
+                "civil_status" => $answerOld->estadocivil,
+                "level_study" => $answerOld->niveldeestudio,
+                "occupation" => $answerOld->ocupacion,
+                "municipality" => $answerOld->muniresidencia,
+                "stratum" => $answerOld->estrato,
+                "type_housing" => $answerOld->vivienda,
+                "dependents" => $answerOld->personasacargo,
+                "municipality_work" => $answerOld->munitrabajo,
+                "years_work" => $answerOld->anostrabajo2,
+                "position" => $answerOld->cargo,
+                "position_type" => $answerOld->tipodecargo,
+                "position_years" => $answerOld->añoscargo2,
+                "area" => $answerOld->area,
+                "type_contract" => $answerOld->contrato,
+                "hours_work" => $answerOld->añoscargo2,
+                "salary_type" => $answerOld->salario,
+            ];
+
+            $dataGeneral = new Request();
+            $dataGeneral->replace($data);
+
+            $this->createGeneralDataUser($dataGeneral);
+        }
+    }
+
+    public function migrateQuestionnaireExtrawork2020()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliextralaborales::where('fechaaplicacion', 'like', '%2020%')
+            ->where('fechaaplicacion', 'like', '%2019%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerExtrawork($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireStress2020()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliestres_pontificia::where('fechaaplicacion', 'like', '%2020%')
+            ->where('fechaaplicacion', 'like', '%2019%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerStress($dataIntrawork);
+        }
+    }
+
+    public function migrateEmployees2021()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            if ($fichadatosgenerales) {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($year != "2021") {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => mb_strtoupper($empleado2011->proceso),
+                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
+                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
+    public function migrateQuestionnaireA2021()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo1 = caliriesgopsicosocialparte1::where('fechaaplicacion', 'like', '%2021%')->get();
+
+        foreach ($Caliriesgo1 as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97,
+                "answer_98" => $answerOld->r98,
+                "answer_99" => $answerOld->r99,
+                "answer_100" => $answerOld->r100,
+                "answer_101" => $answerOld->r101,
+                "answer_102" => $answerOld->r102,
+                "answer_103" => $answerOld->r103,
+                "answer_104" => $answerOld->r104,
+                "answer_105" => $answerOld->r105,
+                "answer_106" => $answerOld->r106,
+                "answer_107" => $answerOld->r107,
+                "answer_108" => $answerOld->r108,
+                "answer_109" => $answerOld->r109,
+                "answer_110" => $answerOld->r110,
+                "answer_111" => $answerOld->r111,
+                "answer_112" => $answerOld->r112,
+                "answer_113" => $answerOld->r113,
+                "answer_114" => $answerOld->r114,
+                "answer_115" => $answerOld->r115,
+                "answer_116" => $answerOld->r116,
+                "answer_117" => $answerOld->r117,
+                "answer_118" => $answerOld->r118,
+                "answer_119" => $answerOld->r119,
+                "answer_120" => $answerOld->r120,
+                "answer_121" => $answerOld->r121,
+                "answer_122" => $answerOld->r122,
+                "answer_123" => $answerOld->r123,
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkAUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireB2021()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliriesgopsicosocialparte2::where('fechaaplicacion', 'like', '%2021%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkBUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireGeneralData2021()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = fichadatosgenerales::where('fechaaplicacion', 'like', '%2021%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "gender" => $answerOld->sexo,
+                "birth_date" => $answerOld->anodenacimiento,
+                "civil_status" => $answerOld->estadocivil,
+                "level_study" => $answerOld->niveldeestudio,
+                "occupation" => $answerOld->ocupacion,
+                "municipality" => $answerOld->muniresidencia,
+                "stratum" => $answerOld->estrato,
+                "type_housing" => $answerOld->vivienda,
+                "dependents" => $answerOld->personasacargo,
+                "municipality_work" => $answerOld->munitrabajo,
+                "years_work" => $answerOld->anostrabajo2,
+                "position" => $answerOld->cargo,
+                "position_type" => $answerOld->tipodecargo,
+                "position_years" => $answerOld->añoscargo2,
+                "area" => $answerOld->area,
+                "type_contract" => $answerOld->contrato,
+                "hours_work" => $answerOld->añoscargo2,
+                "salary_type" => $answerOld->salario,
+            ];
+
+            $dataGeneral = new Request();
+            $dataGeneral->replace($data);
+
+            $this->createGeneralDataUser($dataGeneral);
+        }
+    }
+
+    public function migrateQuestionnaireExtrawork2021()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliextralaborales::where('fechaaplicacion', 'like', '%2021%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerExtrawork($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireStress2021()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliestres_pontificia::where('fechaaplicacion', 'like', '%2021%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerStress($dataIntrawork);
+        }
+    }
+
+    public function migrateEmployees2022()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados2024::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+
+            if ($fichadatosgenerales && $empleado2011->ciclos2 == '-') {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => mb_strtoupper($empleado2011->proceso),
+                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
+                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
+                'eighth_level' => "",
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
+    public function migrateQuestionnaireA2022()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo1 = caliriesgopsicosocialparte1::where('fechaaplicacion', 'like', '%2022%')->get();
+
+        foreach ($Caliriesgo1 as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97,
+                "answer_98" => $answerOld->r98,
+                "answer_99" => $answerOld->r99,
+                "answer_100" => $answerOld->r100,
+                "answer_101" => $answerOld->r101,
+                "answer_102" => $answerOld->r102,
+                "answer_103" => $answerOld->r103,
+                "answer_104" => $answerOld->r104,
+                "answer_105" => $answerOld->r105,
+                "answer_106" => $answerOld->r106,
+                "answer_107" => $answerOld->r107,
+                "answer_108" => $answerOld->r108,
+                "answer_109" => $answerOld->r109,
+                "answer_110" => $answerOld->r110,
+                "answer_111" => $answerOld->r111,
+                "answer_112" => $answerOld->r112,
+                "answer_113" => $answerOld->r113,
+                "answer_114" => $answerOld->r114,
+                "answer_115" => $answerOld->r115,
+                "answer_116" => $answerOld->r116,
+                "answer_117" => $answerOld->r117,
+                "answer_118" => $answerOld->r118,
+                "answer_119" => $answerOld->r119,
+                "answer_120" => $answerOld->r120,
+                "answer_121" => $answerOld->r121,
+                "answer_122" => $answerOld->r122,
+                "answer_123" => $answerOld->r123,
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkAUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireB2022()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliriesgopsicosocialparte2::where('fechaaplicacion', 'like', '%2022%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkBUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireGeneralData2022()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = fichadatosgenerales::where('fechaaplicacion', 'like', '%2022%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "gender" => $answerOld->sexo,
+                "birth_date" => $answerOld->anodenacimiento,
+                "civil_status" => $answerOld->estadocivil,
+                "level_study" => $answerOld->niveldeestudio,
+                "occupation" => $answerOld->ocupacion,
+                "municipality" => $answerOld->muniresidencia,
+                "stratum" => $answerOld->estrato,
+                "type_housing" => $answerOld->vivienda,
+                "dependents" => $answerOld->personasacargo,
+                "municipality_work" => $answerOld->munitrabajo,
+                "years_work" => $answerOld->anostrabajo2,
+                "position" => $answerOld->cargo,
+                "position_type" => $answerOld->tipodecargo,
+                "position_years" => $answerOld->añoscargo2,
+                "area" => $answerOld->area,
+                "type_contract" => $answerOld->contrato,
+                "hours_work" => $answerOld->añoscargo2,
+                "salary_type" => $answerOld->salario,
+            ];
+
+            $dataGeneral = new Request();
+            $dataGeneral->replace($data);
+
+            $this->createGeneralDataUser($dataGeneral);
+        }
+    }
+
+    public function migrateQuestionnaireExtrawork2022()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliextralaborales::where('fechaaplicacion', 'like', '%2022%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerExtrawork($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireStress2022()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliestres_pontificia::where('fechaaplicacion', 'like', '%2022%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerStress($dataIntrawork);
+        }
+    }
+
+    public function migrateEmployees2023()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados2024::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+
+            if ($fichadatosgenerales && $empleado2011->ciclos2 == '-') {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => mb_strtoupper($empleado2011->proceso),
+                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
+                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
+                'eighth_level' => "",
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
+    public function migrateQuestionnaireA2023()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo1 = caliriesgopsicosocialparte1::where('fechaaplicacion', 'like', '%2023%')->get();
+
+        foreach ($Caliriesgo1 as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97,
+                "answer_98" => $answerOld->r98,
+                "answer_99" => $answerOld->r99,
+                "answer_100" => $answerOld->r100,
+                "answer_101" => $answerOld->r101,
+                "answer_102" => $answerOld->r102,
+                "answer_103" => $answerOld->r103,
+                "answer_104" => $answerOld->r104,
+                "answer_105" => $answerOld->r105,
+                "answer_106" => $answerOld->r106,
+                "answer_107" => $answerOld->r107,
+                "answer_108" => $answerOld->r108,
+                "answer_109" => $answerOld->r109,
+                "answer_110" => $answerOld->r110,
+                "answer_111" => $answerOld->r111,
+                "answer_112" => $answerOld->r112,
+                "answer_113" => $answerOld->r113,
+                "answer_114" => $answerOld->r114,
+                "answer_115" => $answerOld->r115,
+                "answer_116" => $answerOld->r116,
+                "answer_117" => $answerOld->r117,
+                "answer_118" => $answerOld->r118,
+                "answer_119" => $answerOld->r119,
+                "answer_120" => $answerOld->r120,
+                "answer_121" => $answerOld->r121,
+                "answer_122" => $answerOld->r122,
+                "answer_123" => $answerOld->r123,
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkAUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireB2023()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliriesgopsicosocialparte2::where('fechaaplicacion', 'like', '%2023%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkBUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireGeneralData2023()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = fichadatosgenerales::where('fechaaplicacion', 'like', '%2023%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "gender" => $answerOld->sexo,
+                "birth_date" => $answerOld->anodenacimiento,
+                "civil_status" => $answerOld->estadocivil,
+                "level_study" => $answerOld->niveldeestudio,
+                "occupation" => $answerOld->ocupacion,
+                "municipality" => $answerOld->muniresidencia,
+                "stratum" => $answerOld->estrato,
+                "type_housing" => $answerOld->vivienda,
+                "dependents" => $answerOld->personasacargo,
+                "municipality_work" => $answerOld->munitrabajo,
+                "years_work" => $answerOld->anostrabajo2,
+                "position" => $answerOld->cargo,
+                "position_type" => $answerOld->tipodecargo,
+                "position_years" => $answerOld->añoscargo2,
+                "area" => $answerOld->area,
+                "type_contract" => $answerOld->contrato,
+                "hours_work" => $answerOld->añoscargo2,
+                "salary_type" => $answerOld->salario,
+            ];
+
+            $dataGeneral = new Request();
+            $dataGeneral->replace($data);
+
+            $this->createGeneralDataUser($dataGeneral);
+        }
+    }
+
+    public function migrateQuestionnaireExtrawork2023()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliextralaborales::where('fechaaplicacion', 'like', '%2023%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerExtrawork($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireStress2023()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliestres_pontificia::where('fechaaplicacion', 'like', '%2023%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerStress($dataIntrawork);
+        }
+    }
+
+    public function migrateEmployees2024()
+    {
+        set_time_limit(12000000);
+
+        $Empleados2011 = Empleados2024::all();
+
+        foreach ($Empleados2011 as $empleado2011) {
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            if ($empleado2011->empresa == "") {
+                continue;
+            }
+
+            $positionType = "Profesional, analista, técnico, tecnólogo";
+            $fichadatosgenerales = fichadatosgenerales::where('cc', '=', $empleado2011->cc)->first();
+
+            if ($fichadatosgenerales && $empleado2011->ciclos2 == '-') {
+                $positionType = $fichadatosgenerales->tipodecargo;
+            } else {
+                continue;
+            }
+
+            $year = $this->formatYear($fichadatosgenerales->fechaaplicacion);
+
+            $companyName = Company::where('company_nit', '=', $empleado2011->nit)->first();
+
+            if (!$companyName) {
+                $companyName = Company::create([
+                    "company_name" => $empleado2011->empresa,
+                    "company_nit" => $empleado2011->nit,
+                    "contact" => "",
+                    "position_contact" => "",
+                    "contact_email" => "",
+                    "address" => "",
+                    "phone" => "",
+                    "cell_phone" => "",
+                    "policy" => "",
+                    "city_id" => 160,
+                    "arl_type_id" => 15,
+                    "client_type_id" => 17,
+                    "reinsurer_type_id" => 3,
+                ]);
+            }
+
+            $measurementName = "MEDICIÓN $companyName->company_name";
+
+            $ifExistsMeasurement = Measurements::where('measurement_name', '=', mb_strtoupper($measurementName, 'UTF-8'))
+                ->where('measurement_year', '=', $year)
+                ->first();
+
+            $measurementId = "";
+            if (!$ifExistsMeasurement) {
+                $measurement = Measurements::create([
+                    'measurement_name' => mb_strtoupper($measurementName, 'UTF-8'),
+                    'measurement_year' => $year,
+                    'state' => 0,
+                    'start_date' => "$year-01-01 07:30:00",
+                    'end_date' => "$year-12-31 12:35:00"
+                ]);
+
+                MeasurementCompanies::create([
+                    'measurement_id' => $measurement->measurement_id,
+                    'company_id' => $companyName->company_id,
+                ]);
+
+                CompanyPlatform::create([
+                    'platform_id' => 2,
+                    'company_id' => $companyName->company_id
+                ]);
+
+                $measurementId = $measurement->measurement_id;
+            } else {
+                $measurementId = $ifExistsMeasurement->measurement_id;
+            }
+
+            $isEmployeeExists = Employees::where('document_employee', '=', $empleado2011->cc)
+                ->where('measurement_id', '=', $measurementId)
+                ->first();
+
+            if ($isEmployeeExists) {
+                continue;
+            }
+
+            $Employees = Employees::create([
+                'company_id' => $companyName->company_id,
+                'measurement_id' => $measurementId,
+                'city' => mb_strtoupper($empleado2011->regional, 'UTF-8'),
+                'document_employee' => $empleado2011->cc,
+                'first_name' => mb_strtoupper($empleado2011->nombres),
+                'last_name' => mb_strtoupper($empleado2011->apellidos),
+                'position' => mb_strtoupper($empleado2011->cargo),
+                'position_type' => $positionType,
+                'email' => $empleado2011->email,
+                'username' => "CERRADO-$year",
+                'password' => "CERRADO-$year",
+                'first_level' => mb_strtoupper($empleado2011->oficina),
+                'second_level' => mb_strtoupper($empleado2011->sede),
+                'third_level' => mb_strtoupper($empleado2011->ciclos),
+                'fourth_level' => mb_strtoupper($empleado2011->sucursales),
+                'fifth_level' => mb_strtoupper($empleado2011->proceso),
+                'sixth_level' => mb_strtoupper($empleado2011->subproceso),
+                'seventh_level' => mb_strtoupper($empleado2011->oficina2),
+                'eighth_level' => "",
+                'state' => 0
+            ]);
+
+            $intralaboralState = "";
+            if ($empleado2011->notas == 'A') {
+                $intralaboralState = $empleado2011->pruebaintralaboralA;
+            } else {
+                $intralaboralState = $empleado2011->pruebaintralaboralB;
+            }
+
+            $Questionnaires = Questionnaires::create([
+                'measurement_id' => $measurementId,
+                'employee_id' => $Employees->employee_id,
+                'type_questionarie' => $empleado2011->notas,
+                'state_crafft' => "",
+                'state_weather' => $empleado2011->pruebaclima,
+                'state_copping' => "",
+                'state_intrawork' => $intralaboralState,
+                'state_extrawork' => $empleado2011->pruebaextralaboral,
+                'state_general_data' => $empleado2011->pruebadatos,
+                'state_stress' => $empleado2011->pruebaestres
+            ]);
+        }
+    }
+
+    public function migrateQuestionnaireA2024()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo1 = caliriesgopsicosocialparte1::where('fechaaplicacion', 'like', '%2024%')->get();
+
+        foreach ($Caliriesgo1 as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97,
+                "answer_98" => $answerOld->r98,
+                "answer_99" => $answerOld->r99,
+                "answer_100" => $answerOld->r100,
+                "answer_101" => $answerOld->r101,
+                "answer_102" => $answerOld->r102,
+                "answer_103" => $answerOld->r103,
+                "answer_104" => $answerOld->r104,
+                "answer_105" => $answerOld->r105,
+                "answer_106" => $answerOld->r106,
+                "answer_107" => $answerOld->r107,
+                "answer_108" => $answerOld->r108,
+                "answer_109" => $answerOld->r109,
+                "answer_110" => $answerOld->r110,
+                "answer_111" => $answerOld->r111,
+                "answer_112" => $answerOld->r112,
+                "answer_113" => $answerOld->r113,
+                "answer_114" => $answerOld->r114,
+                "answer_115" => $answerOld->r115,
+                "answer_116" => $answerOld->r116,
+                "answer_117" => $answerOld->r117,
+                "answer_118" => $answerOld->r118,
+                "answer_119" => $answerOld->r119,
+                "answer_120" => $answerOld->r120,
+                "answer_121" => $answerOld->r121,
+                "answer_122" => $answerOld->r122,
+                "answer_123" => $answerOld->r123,
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkAUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireB2024()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliriesgopsicosocialparte2::where('fechaaplicacion', 'like', '%2024%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31,
+                "answer_32" => $answerOld->r32,
+                "answer_33" => $answerOld->r33,
+                "answer_34" => $answerOld->r34,
+                "answer_35" => $answerOld->r35,
+                "answer_36" => $answerOld->r36,
+                "answer_37" => $answerOld->r37,
+                "answer_38" => $answerOld->r38,
+                "answer_39" => $answerOld->r39,
+                "answer_40" => $answerOld->r40,
+                "answer_41" => $answerOld->r41,
+                "answer_42" => $answerOld->r42,
+                "answer_43" => $answerOld->r43,
+                "answer_44" => $answerOld->r44,
+                "answer_45" => $answerOld->r45,
+                "answer_46" => $answerOld->r46,
+                "answer_47" => $answerOld->r47,
+                "answer_48" => $answerOld->r48,
+                "answer_49" => $answerOld->r49,
+                "answer_50" => $answerOld->r50,
+                "answer_51" => $answerOld->r51,
+                "answer_52" => $answerOld->r52,
+                "answer_53" => $answerOld->r53,
+                "answer_54" => $answerOld->r54,
+                "answer_55" => $answerOld->r55,
+                "answer_56" => $answerOld->r56,
+                "answer_57" => $answerOld->r57,
+                "answer_58" => $answerOld->r58,
+                "answer_59" => $answerOld->r59,
+                "answer_60" => $answerOld->r60,
+                "answer_61" => $answerOld->r61,
+                "answer_62" => $answerOld->r62,
+                "answer_63" => $answerOld->r63,
+                "answer_64" => $answerOld->r64,
+                "answer_65" => $answerOld->r65,
+                "answer_66" => $answerOld->r66,
+                "answer_67" => $answerOld->r67,
+                "answer_68" => $answerOld->r68,
+                "answer_69" => $answerOld->r69,
+                "answer_70" => $answerOld->r70,
+                "answer_71" => $answerOld->r71,
+                "answer_72" => $answerOld->r72,
+                "answer_73" => $answerOld->r73,
+                "answer_74" => $answerOld->r74,
+                "answer_75" => $answerOld->r75,
+                "answer_76" => $answerOld->r76,
+                "answer_77" => $answerOld->r77,
+                "answer_78" => $answerOld->r78,
+                "answer_79" => $answerOld->r79,
+                "answer_80" => $answerOld->r80,
+                "answer_81" => $answerOld->r81,
+                "answer_82" => $answerOld->r82,
+                "answer_83" => $answerOld->r83,
+                "answer_84" => $answerOld->r84,
+                "answer_85" => $answerOld->r85,
+                "answer_86" => $answerOld->r86,
+                "answer_87" => $answerOld->r87,
+                "answer_88" => $answerOld->r88,
+                "answer_89" => $answerOld->r89,
+                "answer_90" => $answerOld->r90,
+                "answer_91" => $answerOld->r91,
+                "answer_92" => $answerOld->r92,
+                "answer_93" => $answerOld->r93,
+                "answer_94" => $answerOld->r94,
+                "answer_95" => $answerOld->r95,
+                "answer_96" => $answerOld->r96,
+                "answer_97" => $answerOld->r97
+            ];
+
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerIntraWorkBUser($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireGeneralData2024()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = fichadatosgenerales::where('fechaaplicacion', 'like', '%2024%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "gender" => $answerOld->sexo,
+                "birth_date" => $answerOld->anodenacimiento,
+                "civil_status" => $answerOld->estadocivil,
+                "level_study" => $answerOld->niveldeestudio,
+                "occupation" => $answerOld->ocupacion,
+                "municipality" => $answerOld->muniresidencia,
+                "stratum" => $answerOld->estrato,
+                "type_housing" => $answerOld->vivienda,
+                "dependents" => $answerOld->personasacargo,
+                "municipality_work" => $answerOld->munitrabajo,
+                "years_work" => $answerOld->anostrabajo2,
+                "position" => $answerOld->cargo,
+                "position_type" => $answerOld->tipodecargo,
+                "position_years" => $answerOld->añoscargo2,
+                "area" => $answerOld->area,
+                "type_contract" => $answerOld->contrato,
+                "hours_work" => $answerOld->añoscargo2,
+                "salary_type" => $answerOld->salario,
+            ];
+
+            $dataGeneral = new Request();
+            $dataGeneral->replace($data);
+
+            $this->createGeneralDataUser($dataGeneral);
+        }
+    }
+
+    public function migrateQuestionnaireExtrawork2024()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliextralaborales::where('fechaaplicacion', 'like', '%2024%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerExtrawork($dataIntrawork);
+        }
+    }
+
+    public function migrateQuestionnaireStress2024()
+    {
+        set_time_limit(12000000);
+
+        $Caliriesgo = caliestres_pontificia::where('fechaaplicacion', 'like', '%2024%')->get();
+
+        foreach ($Caliriesgo as $answerOld) {
+            $Employees = Employees::where('document_employee', '=', $answerOld->cc)
+                ->join('psychosocial_questionnaires', 'psychosocial_questionnaires.employee_id', '=', 'psychosocial_employees.employee_id')
+                ->first();
+
+            if (!$Employees) {
+                continue;
+            }
+
+            $fechaOriginal = $answerOld->fechaaplicacion;
+            if (Carbon::hasFormat($fechaOriginal, 'd/m/Y')) {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            } elseif (Carbon::hasFormat($fechaOriginal, 'Y/m/d')) {
+                $fechaFormateada = DateTime::createFromFormat('Y/m/d', $fechaOriginal)->format('Y-m-d');
+            } else {
+                $fechaFormateada = DateTime::createFromFormat('d/m/Y', $fechaOriginal)->format('Y-m-d');
+            }
+
+            $data = [
+                "questionnaire_id" => $Employees->questionnaire_id,
+                "response_date" => $fechaFormateada,
+                "answer_1" => $answerOld->r1,
+                "answer_2" => $answerOld->r2,
+                "answer_3" => $answerOld->r3,
+                "answer_4" => $answerOld->r4,
+                "answer_5" => $answerOld->r5,
+                "answer_6" => $answerOld->r6,
+                "answer_7" => $answerOld->r7,
+                "answer_8" => $answerOld->r8,
+                "answer_9" => $answerOld->r9,
+                "answer_10" => $answerOld->r10,
+                "answer_11" => $answerOld->r11,
+                "answer_12" => $answerOld->r12,
+                "answer_13" => $answerOld->r13,
+                "answer_14" => $answerOld->r14,
+                "answer_15" => $answerOld->r15,
+                "answer_16" => $answerOld->r16,
+                "answer_17" => $answerOld->r17,
+                "answer_18" => $answerOld->r18,
+                "answer_19" => $answerOld->r19,
+                "answer_20" => $answerOld->r20,
+                "answer_21" => $answerOld->r21,
+                "answer_22" => $answerOld->r22,
+                "answer_23" => $answerOld->r23,
+                "answer_24" => $answerOld->r24,
+                "answer_25" => $answerOld->r25,
+                "answer_26" => $answerOld->r26,
+                "answer_27" => $answerOld->r27,
+                "answer_28" => $answerOld->r28,
+                "answer_29" => $answerOld->r29,
+                "answer_30" => $answerOld->r30,
+                "answer_31" => $answerOld->r31
+            ];
+
+            $dataIntrawork = new Request();
+            $dataIntrawork->replace($data);
+
+            $this->registerStress($dataIntrawork);
         }
     }
 }
